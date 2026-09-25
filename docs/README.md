@@ -1,98 +1,80 @@
-# GuardBench Frontend 문서
+# GuardBench Frontend 문서 라우터
 
-> Status: AS-IS / TO-BE / 미결정
+> Status: APPROVED
 > Owner: Frontend
-> Last reviewed: 2026-09-01
-> Scope: GitHub Issues #8, #10, #11, #13, #15, #17, #32, #33, #34, #35, #36
+> Last reviewed: 2026-09-25
+> Canonical source: GitHub repository (`docs/`)
 
-이 디렉터리는 GuardBench 프론트엔드의 화면 동작, 사용자 흐름, API 소비 방식, 구조와 UI 규칙을 저장소에서 관리하기 위한 문서 진입점이다.
-
-문서는 현재 구현을 기록한 `AS-IS`, 최신 OpenAPI에서 도출되는 `TO-BE`와 별도 결정이 필요한 `미결정`을 함께 관리한다. `AS-IS` 동작을 승인된 제품 요구사항이나 향후 목표 동작으로 간주하지 않는다.
+이 문서는 Frontend 문서 Inventory와 작업별 읽기 경로를 제공한다. 각 문서의 효력은 문서 자체의 상태와 소유권을 따른다. 에이전트 작업의 시작 순서와 계약 판단 우선순위는 repository root의 [`AGENTS.md`](../AGENTS.md)를 따른다.
 
 ## 문서 상태
 
+문서 상태는 다음 네 가지다.
+
 | 상태 | 의미 |
 | --- | --- |
-| `AS-IS` | 현재 코드에서 관찰되는 동작을 기록한다. 올바른 목표 동작이라는 의미는 아니다. |
-| `DRAFT` | 검토 또는 결정이 필요한 제안이다. 구현 계약으로 사용하지 않는다. |
-| `APPROVED` | 팀이 승인한 프론트엔드 계약이다. 구현과 리뷰의 기준으로 사용한다. |
+| `DRAFT` | 제안 또는 검토 중인 내용이다. 승인되기 전에는 구현 계약으로 사용하지 않는다. |
+| `APPROVED` | 승인된 현재 계약 또는 운영 절차다. 구현과 리뷰의 기준으로 사용할 수 있다. |
+| `DEPRECATED` | 신규 구현의 기준으로 사용하지 않는다. 대체 자료를 함께 가리킨다. |
+| `SUPERSEDED` | 후속 결정이나 문서가 내용을 대체했다. 현재 판단에는 대체 자료를 사용한다. |
 
-문서에 상태가 없으면 확정 계약으로 사용하지 않는다. 한 문서 안에 상태가 섞이면 각 절이나 표 항목에 상태를 별도로 표시한다.
+문서의 `Status`가 없으면 `APPROVED`로 간주하지 않는다. 문서 안의 `Current behavior`는 source에서 관찰한 현재 동작을 뜻하며 목표 요구사항이라는 의미는 아니다. `DRAFT` 표제가 있는 절은 제안이다. 해결되지 않은 결정은 문서 상태로 만들지 않고 관련 Issue 또는 ADR에 기록한다.
 
-## 계약 우선순위
+## 계약 소유권
 
-프론트엔드 구현과 문서가 충돌하면 다음 순서로 판단한다.
-
-1. 현재 Issue의 승인된 요구사항과 사용자의 명시적 지시
-2. 백엔드 저장소의 `APPROVED` OpenAPI 및 제품·도메인 계약과, 여기에서 동기화한 이 저장소의 [`api/openapi.yaml`](api/openapi.yaml)
-3. 프론트엔드 저장소의 `APPROVED` 문서
-4. 테스트와 현재 공개 코드 동작
-5. `AS-IS` 및 `DRAFT` 문서
-6. mock 데이터와 데모 표현
-
-백엔드 API의 요청·응답 스키마를 이 저장소에서 다시 정의하지 않는다. 프론트엔드 문서는 화면이 승인된 OpenAPI를 어떻게 소비하고 사용자에게 표현하는지 기록한다.
-
-로컬 OpenAPI는 프론트엔드 구현 기준으로 사용하는 동기화 사본이다. 출처 commit과 SHA-256은
-[`api/openapi.source.json`](api/openapi.source.json)에 기록하며, 동기화와 검증 절차는
-[`api/README.md`](api/README.md)를 따른다. 백엔드 계약이 변경되면 사본과 관련 DTO·화면·문서를
-같은 변경 흐름에서 검토한다.
-
-API 관련 문서의 책임은 다음 순서로 좁아진다.
-
-```text
-OpenAPI
-  → API 연동 계약
-  → 화면 명세와 사용자 흐름
-  → 프론트엔드 아키텍처
-  → UI 및 접근성 가이드
-```
-
-- OpenAPI는 endpoint, schema, enum, nullable, validation과 공개 오류를 소유한다.
-- API 연동 계약은 프론트엔드의 소비·mapping 원칙을 소유한다.
-- 제품 문서는 사용자 목표, 화면과 상태 흐름을 소유한다.
-- 아키텍처 문서는 상태·의존성·계층 경계를 소유한다.
-- UI 가이드는 label, feedback, interaction과 접근성 표현을 소유한다.
-
-## 문서 지도
-
-| 문서 | 상태 | 목적 |
+| 영역 | Owner | Canonical source |
 | --- | --- | --- |
-| [OpenAPI](api/openapi.yaml) | `APPROVED` | 백엔드 canonical source에서 검증 가능하게 동기화한 계약 사본이다. |
-| [OpenAPI 사본 관리](api/README.md) | `APPROVED` | source metadata, 동기화·검증과 drift 탐지 절차를 정의한다. |
-| [화면 및 기능 명세](product/screen-spec.md) | `AS-IS` / `TO-BE` / `미결정` | 6개 현재 화면과 Application Target·Evaluator·Regression 목표 화면을 구분한다. |
-| [사용자 흐름](product/user-flows.md) | `AS-IS` / `TO-BE` / `미결정` | Suite 준비부터 Run 접수·Polling·결과·Evaluator 분석·선택적 비교까지 연결한다. |
-| [API 연동 계약](contracts/api-integration.md) | `AS-IS` / `TO-BE` / `미결정` | 요청 구성, DTO mapping, 오류, Polling, metrics, comparison과 비공개 정책을 정의한다. |
-| [프론트엔드 아키텍처](architecture/frontend-architecture.md) | `AS-IS` / `TO-BE` / `미결정` | query identity, 상태 소유권, API 계층, Polling·동기화·오류와 테스트 경계를 정의한다. |
-| [테스트 가이드](testing.md) | `APPROVED` | Node 계약 테스트와 Chromium 컴포넌트 테스트의 역할, 실행·mock·작성 규칙을 정의한다. |
-| [UI 및 접근성 가이드](conventions/ui-guidelines.md) | `AS-IS` / `TO-BE` / `미결정` | 상태 축, form, 빈 결과·오류, Evaluator·Regression과 접근성 표현을 정의한다. |
-| [프론트엔드 빌드 및 dev 배포](operations/frontend-deployment.md) | `AS-IS` / `DRAFT` | PR build, 문서-only 제외, dev 배포 조건과 AWS 인증 전환 방향을 기록한다. |
+| API endpoint, method, request/response schema, enum, nullable, validation, public error | Backend | Backend의 승인된 `docs/api/openapi.yaml`; 이 저장소의 OpenAPI는 출처 metadata가 붙은 동기화 사본이다. |
+| Frontend API 호출, DTO mapping, 서버 상태를 화면 상태로 표현하는 규칙 | Frontend | [`contracts/api-integration.md`](contracts/api-integration.md)와 실제 API service/source |
+| 사용자 목표, 화면, route 및 흐름 | Frontend | [`product/`](product/) 문서와 현재 route/view 구현 |
+| 계층, 의존 방향, 상태 소유권 | Frontend | [`architecture/frontend-architecture.md`](architecture/frontend-architecture.md)와 현재 `src/` |
+| interaction, feedback, 접근성 표현 | Frontend | [`conventions/ui-guidelines.md`](conventions/ui-guidelines.md)와 browser-visible behavior |
+| 테스트 전략과 작성 규칙 | Frontend | [`testing.md`](testing.md) 및 테스트 설정/source |
+| Frontend build/deploy workflow 동작 | Frontend | [`operations/frontend-deployment.md`](operations/frontend-deployment.md)와 `.github/workflows/` |
+| AWS resource definition | Infrastructure | IaC 저장소. Frontend workflow의 resource ID는 설정값이지 resource 정의의 source가 아니다. |
 
-Application 자연어 응답은 현재 public API와 UI에서 비공개로 확정돼 있다. 관리자 또는 배포 전 테스트라는 이유만으로 원문을 조회·저장·표시하지 않는다.
+Frontend 문서는 Backend OpenAPI의 API schema를 복제해 독립 계약으로 만들지 않는다. OpenAPI 사본의 source commit과 SHA-256은 [`api/openapi.source.json`](api/openapi.source.json)에 기록한다. 사본 동기화·검증 절차는 [`api/README.md`](api/README.md)를 따른다.
 
-## 최신 OpenAPI 개정 추적
+## 문서 Inventory
 
-| 이슈 | 범위 | 상태 확인 위치 |
-| --- | --- | --- |
-| #32 | API 연동 계약 | `contracts/api-integration.md` |
-| #33 | 화면 명세와 사용자 흐름 | `product/` |
-| #34 | 프론트엔드 아키텍처 | `architecture/frontend-architecture.md` |
-| #35 | UI 가이드와 문서 지도 | `conventions/ui-guidelines.md`, 이 문서 |
-| #36 | 전체 개정 추적 | GitHub Issue checklist |
-| #59 | OpenAPI 사본 동기화와 drift 검증 | `api/README.md`, `api/openapi.source.json` |
-| #60 | 필수 Application model 계약 | 생성·상세 DTO와 화면 |
-| #61 | 확정 Quality Gate metrics | 상세 DTO와 Quality Gate 카드 |
-| #62 | 최신 소비 문서 정렬 | API·제품·아키텍처·UI 문서 |
+현재 문서 책임과 2026-09-25 source 대조 결과다. 미래 제안은 `DRAFT`로 분리하고 현재 동작으로 설명하지 않는다.
 
-## 갱신 기준
+| 문서 | 상태 / Owner | 역할 및 canonical source | source 대조 결과 |
+| --- | --- | --- | --- |
+| [`product/screen-spec.md`](product/screen-spec.md) | `APPROVED` / Frontend | 현재 화면, route, 사용자에게 보이는 상태 | `src/routing/`, `ResultDetailView.tsx`, `ApplicationResponseEvidence.tsx`를 포함한 `src/components/views/`와 대조했다. 계획은 별도 `DRAFT` 절로 구분한다. |
+| [`product/user-flows.md`](product/user-flows.md) | `APPROVED` / Frontend | Suite 준비, Run 생성·진행·결과·Regression 흐름 | view, service, hook과 route를 대조했으며 결과 목록과 Snapshot detail API의 Application Response 흐름도 확인했다. 미구현 선택지는 승인 흐름에서 분리한다. |
+| [`api/openapi.yaml`](api/openapi.yaml) | `APPROVED` / Backend | Backend API 계약의 동기화 사본 | Backend `GuardBench/guardbench-backend`가 canonical source. 기록된 commit `1aa4941`의 원본과 사본 SHA-256이 일치함을 확인했다. `openapi:verify` script 자체는 Backend clone이 없어 실행하지 않았다. |
+| [`api/openapi.source.json`](api/openapi.source.json) | 생성 metadata / Backend source 참조 | 사본의 source repository, commit, path, SHA-256 | [`scripts/sync-openapi.mjs`](../scripts/sync-openapi.mjs)와 `openapi-contract.yml`이 기록·검증한다. |
+| [`api/README.md`](api/README.md) | `APPROVED` / Frontend | OpenAPI 사본 sync, verify, drift 확인 절차 | npm scripts, sync script, `.github/workflows/openapi-contract.yml`과 대조했다. |
+| [`contracts/api-integration.md`](contracts/api-integration.md) | `APPROVED` / Frontend | Backend 계약을 호출·mapping·표현하는 소비 계약 | `testRunService.ts`, `ApplicationResponseEvidence.tsx`, `ResultDetailView.tsx`를 포함한 service/view와 OpenAPI의 list/detail response를 대조했다. endpoint/schema의 owner가 아니다. |
+| [`architecture/frontend-architecture.md`](architecture/frontend-architecture.md) | `APPROVED` / Frontend | 현재 module 경계, 상태 소유권, polling·오류·테스트 경계 | `src/App.tsx`, `src/config/`, `src/routing/`, `src/services/`, `useLiveRunProgress.ts`, `ApplicationResponseEvidence.tsx`와 대조했다. 제안은 `DRAFT`로 분리한다. |
+| [`conventions/ui-guidelines.md`](conventions/ui-guidelines.md) | `APPROVED` / Frontend | 현재 UI 상태, form, dialog, feedback, 접근성 기준 | common/view components, `ApplicationResponseEvidence.tsx`, `useDialogFocus`, layer config와 browser-visible behavior를 다시 대조했다. 지원 여부를 정하지 않은 제안은 `DRAFT`로 구분한다. |
+| [`testing.md`](testing.md) | `APPROVED` / Frontend | Node contract/presentation 및 Chromium component test 규칙 | `package.json`, `vitest.config.ts`, `tsconfig.browser.json`, `scripts/`, `tests/browser/`, workflow와 대조했다. |
+| [`operations/frontend-deployment.md`](operations/frontend-deployment.md) | `APPROVED` / Frontend | Frontend build, artifact, deploy 및 release workflow 동작 | `.github/workflows/`와 대조했다. AWS resource 정의는 IaC 소유이며 실제 IaC output과의 대조는 이 환경에서 수행하지 않았다. |
+| [`decisions/README.md`](decisions/README.md) | `APPROVED` / Frontend | 근거가 확인된 설계 결정과 ADR 탐색 | source/docs/Issue에서 확인 가능한 결정을 기록한다. 기록되지 않은 과거 결정을 추정하지 않는다. |
 
-다음 변경은 관련 문서를 함께 검토한다.
+### 문서 구조 선택
 
-- 화면 추가·삭제 또는 주요 사용자 행동 변경
-- 라우팅 및 화면 진입 조건 변경
-- API endpoint, 요청·응답 매핑 또는 오류 처리 변경
-- mock과 실제 API 사이의 전환 정책 변경
-- 로딩, 빈 결과, 오류, Polling 상태 표현 변경
-- 공통 컴포넌트 책임이나 상태 관리 구조 변경
-- 접근성 또는 반응형 기준 변경
+- 별도 `contracts/README.md`는 추가하지 않는다. 계약 책임과 작업별 라우팅은 이 문서가 담당하고 OpenAPI 동기화 운영은 `api/README.md`가 담당한다.
+- 별도 `conventions/project-structure.md`는 추가하지 않는다. 실제 module과 계층 책임은 architecture 문서가 관리하며 구조가 바뀌면 그 문서를 갱신한다.
+- `docs/ai-development/`는 추가하지 않는다. 작업 절차는 root `AGENTS.md`가 소유하고 테스트 작성 방법은 `testing.md`가 소유한다.
+- 중요한 Frontend 설계 결정은 [`decisions/`](decisions/)의 ADR에 남긴다. 기존 사실을 근거 없이 소급 작성하지 않는다.
 
-문서와 코드가 다르면 차이를 숨기지 않고 현재 상태와 필요한 후속 Issue를 기록한다.
+## 작업별 문서 라우팅
+
+먼저 현재 Issue와 [`AGENTS.md`](../AGENTS.md)를 확인한 뒤, 아래 자료와 실제 source/test를 읽는다.
+
+| 작업 | 읽기 순서 |
+| --- | --- |
+| 화면 구현 | [`product/screen-spec.md`](product/screen-spec.md) → [`product/user-flows.md`](product/user-flows.md) → [`conventions/ui-guidelines.md`](conventions/ui-guidelines.md) → 관련 views/components 및 tests |
+| API 연동 | [`api/README.md`](api/README.md) → [`api/openapi.yaml`](api/openapi.yaml) → [`contracts/api-integration.md`](contracts/api-integration.md) → 관련 services/types와 tests |
+| 사용자 흐름 변경 | [`product/user-flows.md`](product/user-flows.md) → [`product/screen-spec.md`](product/screen-spec.md) → route/view 구현과 tests |
+| Architecture 변경 | [`architecture/frontend-architecture.md`](architecture/frontend-architecture.md) → 관련 source 의존·상태 흐름 → 관련 tests → [`decisions/`](decisions/) |
+| UI/접근성 변경 | [`conventions/ui-guidelines.md`](conventions/ui-guidelines.md) → [`testing.md`](testing.md) → 관련 components와 browser tests |
+| 테스트 변경 | [`testing.md`](testing.md) → `package.json`과 test config → 대상 Node/browser tests |
+| 배포 변경 | [`operations/frontend-deployment.md`](operations/frontend-deployment.md) → `.github/workflows/` → 관련 설정 및 IaC 책임 경계 |
+| 문서 또는 설계 결정 | 관련 canonical 문서 → 현재 구현 근거 → [`decisions/README.md`](decisions/README.md)와 Issue 기록 |
+
+## 문서 갱신
+
+Route, 화면, endpoint 소비, DTO mapping, polling, 상태 소유권, loading/empty/error 표현, 접근성, 테스트 설정 또는 workflow가 바뀌면 위 Inventory에서 책임 문서를 확인해 함께 갱신한다. Backend OpenAPI 변경은 Backend에서 먼저 승인한 뒤 사본을 동기화한다. 실제 source와 문서가 다르면 현재 동작을 승인 목표로 승격하지 말고 차이와 후속 Issue를 명시한다.

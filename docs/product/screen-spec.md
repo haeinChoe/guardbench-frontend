@@ -1,43 +1,42 @@
 # 프론트엔드 화면 및 기능 명세
 
-> Status: AS-IS / TO-BE / 미결정
+> Status: APPROVED
 > Owner: Frontend
-> Last reviewed: 2026-09-04
+> Last reviewed: 2026-09-25
+> Canonical source: GitHub repository (`src/routing/`, `src/components/views/`)
 > Scope: GitHub Issues #33, #62, #72, #86
-> Implementation baseline: PR #88 (`agent/72-regression-result-detail-docs`)
-> #86 갱신: 단일 Target 생성 계약과 결과·회귀 화면의 평가 정책 metadata 제거를 반영한다.
 > Canonical API: [`../api/openapi.yaml`](../api/openapi.yaml) (`APPROVED`)
 > API consumption contract: [`../contracts/api-integration.md`](../contracts/api-integration.md)
 
-이 문서는 현재 프론트엔드 화면의 실제 동작과 최신 OpenAPI에서 직접 도출되는 목표 동작을 구분한다. API schema를 다시 정의하지 않으며 endpoint와 schema의 의미는 OpenAPI 및 API 연동 계약을 따른다.
+이 문서는 현재 구현에서 확인한 화면 동작을 승인 기준으로 기록한다. 미구현 화면이나 정책 제안은 `DRAFT`로 표시하며 구현 계약으로 사용하지 않는다. API schema를 다시 정의하지 않으며 endpoint와 schema의 의미는 Backend OpenAPI 및 API 연동 계약을 따른다.
 
 ## 1. 읽는 방법
 
 | 표기 | 의미 |
 | --- | --- |
-| `AS-IS` | 기준 구현에서 관찰되는 현재 동작 |
-| `TO-BE` | 최신 OpenAPI에서 직접 도출되는 목표 동작 |
-| `미결정` | OpenAPI만으로 확정할 수 없는 제품·UI 정책 |
+| `Current behavior` | 현재 source에서 확인한 구현 동작 |
+| `DRAFT` | 아직 구현되거나 승인되지 않은 화면·정책 제안 |
+| `Decision needed` | 별도 Issue 또는 ADR에서 결정해야 하는 정책 |
 | `데모` | 실제 API나 영속 상태가 아닌 정적 표현 |
 
-코드가 OpenAPI와 다르면 AS-IS 불일치로 기록하고 목표 사양으로 승인하지 않는다. 실제 API 성공, 빈 결과, 오류와 demo/mock을 서로 구분한다.
+현재 구현과 Backend OpenAPI가 다르면 차이를 기록하고 Backend 계약을 Frontend에서 재정의하지 않는다. 실제 API 성공, 빈 결과, 오류와 demo/mock을 서로 구분한다.
 
 ## 2. 공통 셸과 navigation
 
 ### 화면 목록
 
-| 화면 | View | 현재 진입 방식 | 목표 역할 |
+| 화면 | View | 현재 진입 방식 | 화면 역할 |
 | --- | --- | --- | --- |
-| 대시보드 | `DashboardView` | Sidebar / logo | 정적 데모와 실제 집계의 출처 구분 |
+| 대시보드 | `DashboardView` | Sidebar / logo | TestSuite·TestRun 목록 응답을 이용한 현재 요약 |
 | 테스트 스위트 | `SuitesView` | Sidebar | Suite와 TestCase 관리 |
 | 새 테스트 실행 | `NewRunView` | Sidebar / 다시 실행 | TestSuite + Application Target 제출 |
 | 실행 이력 | `RunsView` | Sidebar | Run lifecycle/outcome/Gate 조회와 상세 진입 |
 | 결과 상세 | `ResultDetailView` + `RegressionSummaryEntry` | Run 행 / 생성 완료 | 현재 Run 결과를 이해하고 Regression 상세로 진입 |
 | Regression 상세 | `RegressionDetailView` | Result Detail의 `회귀 상세 보기` | comparable Run 선택과 Regression 변화 상세 분석 |
 
-현재 `App`은 browser History API와 pathname 기반 route로 화면 및 선택 Run을 관리한다. 알려지지 않은 정적 경로와 제거된 `/architecture`는 Dashboard로 해석한다. (`AS-IS`)
+현재 `App`은 browser History API와 pathname 기반 route로 화면 및 선택 Run을 관리한다. 알려지지 않은 경로는 Dashboard로 해석한다. 유효하지 않은 Run ID는 전용 오류 화면으로 표시한다. (`Current behavior`)
 
-Regression Detail은 `/runs/{runId}/regression` 경로를 사용하며 별도 routing library는 도입하지 않는다. filter/page의 URL 보존은 `미결정`이다. 실제 Run ID와 화면 장식 ID를 분리하고 화면 이동 시 이전 요청과 Polling을 정리한다. (`AS-IS`)
+Regression Detail은 `/runs/{runId}/regression` 경로를 사용하며 별도 routing library는 도입하지 않는다. filter/page 상태는 URL에 보존하지 않는다. 실제 Run ID를 사용하고 Run 변경·화면 이탈 시 이전 요청과 Polling을 정리한다. (`Current behavior`)
 
 ## 3. 공통 화면 상태
 
@@ -60,20 +59,20 @@ Toast는 일시적 action 결과에 사용할 수 있지만 조회 실패, valid
 
 GuardBench의 핵심 개념과 최근 활동 형태를 시각적으로 소개한다.
 
-### 현재 동작 (`AS-IS`)
+### 현재 동작 (`Current behavior`)
 
 - TestSuite와 TestRun 목록 API의 page metadata와 items로 통계, 최근 활동과 Quality Gate 분포를 표시한다.
 - 대시보드 전용 집계 endpoint는 호출하지 않으며, 조회 범위 기반 수치를 전체 집계처럼 표현하지 않는다.
 - 최초 loading, 최초 오류, 성공 후 실제 empty와 이전 data를 유지한 갱신 오류를 구분한다.
 - 일부 card와 action은 다른 local view로 이동한다.
 
-### 목표 경계 (`TO-BE`)
+### 목표 경계 (`DRAFT`)
 
 - OpenAPI에는 대시보드 전용 집계 endpoint가 없다.
 - 목록 API의 조회 범위를 실제 전체 집계나 Regression 결과처럼 표현하지 않는다.
 - demo 화면으로 유지하면 명시적인 demo 표식을 제공한다.
 
-실제 대시보드의 지표, 기간과 endpoint 도입 여부는 `미결정`이다.
+전용 Dashboard aggregate endpoint나 전체 기간 통계는 현재 구현되어 있지 않다. 추가 집계가 필요하면 Backend 계약을 먼저 승인한다.
 
 ## 5. 테스트 스위트와 TestCase 관리
 
@@ -81,7 +80,7 @@ GuardBench의 핵심 개념과 최근 활동 형태를 시각적으로 소개한
 
 TestSuite 목록을 확인하고 Run에서 사용할 TestCase를 관리한다.
 
-### 현재 동작 (`AS-IS`)
+### 현재 동작 (`Current behavior`)
 
 - Suite 목록은 `GET /api/v1/test-suites`를 사용한다.
 - API 성공의 실제 빈 결과와 오류를 구분하며 silent mock fallback을 사용하지 않는다.
@@ -93,7 +92,7 @@ TestSuite 목록을 확인하고 Run에서 사용할 TestCase를 관리한다.
 - server pagination은 화면 control에 연결되어 있으며 filter 연결은 아직 제공하지 않는다.
 - TestCase 페이지네이션은 좁은 화면에서 첫 줄 전체 폭을 사용하며 `이전`과 `다음`을 가로쓰기로 유지한다. 페이지가 많아 가용 폭을 넘으면 페이지네이션 영역 안에서 가로로 탐색할 수 있다.
 
-### 목표 동작 (`TO-BE`)
+### 목표 동작 (`DRAFT`)
 
 | 사용자 action | Endpoint | 화면 책임 |
 | --- | --- | --- |
@@ -113,7 +112,7 @@ Suite 생성은 두 형태를 모두 허용한다.
 
 기존 Suite의 일괄 등록도 JSON 배열 직접 입력·UTF-8 JSON 파일·UTF-8 CSV 파일을 지원한다. 가져온 정상 항목은 미리보기에서 각 필드를 수정할 수 있고, client 및 server validation 오류를 항목별로 표시한다. 전체 요청은 부분 성공 없이 원자적으로 처리하며, 결과를 알 수 없는 동일 payload 재시도에는 같은 `Idempotency-Key`를 유지하고 항목이 바뀌면 새 key를 사용한다.
 
-pagination/filter UX, 삭제 확인 방식과 mutation 후 재조회 정책은 `미결정`이다.
+TestCase 목록은 server pagination을 사용하고 UI filter는 제공하지 않는다. Mutation 성공 후 목록 갱신 정책은 현재 Suite/TestCase view 구현을 따른다. 다른 확인 흐름 변경은 별도 Issue에서 승인한다.
 
 ## 6. 새 테스트 실행
 
@@ -130,7 +129,7 @@ TestSuite
 → Run 상세 조회
 ```
 
-### 현재 동작 (`AS-IS`)
+### 현재 동작 (`Current behavior`)
 
 - Suite 목록은 실제 API에서 조회한다.
 - OpenAI-compatible full endpoint, 필수 model과 선택 revision을 입력받는다.
@@ -138,7 +137,7 @@ TestSuite
 - `testRunService`는 `testSuiteId`, 단일 `target`과 선택적인 `qualityGatePolicy`를 전송한다.
 - 동일 payload의 결과 불명 재시도에는 같은 Idempotency-Key를 유지한다.
 
-### 현재 form 계약 (`AS-IS`)
+### 현재 form 계약 (`Current behavior`)
 
 | 영역 | 입력 | 상태와 validation |
 | --- | --- | --- |
@@ -157,14 +156,14 @@ TestSuite
 - Quality Gate 기준을 작성하는 중에는 중립적인 “기준 입력 중”으로 표시하고, 제출 후 validation이 확정된 경우에만 “입력 확인 필요”로 표시한다. 유효한 값은 숫자를 정규화해 요약한다.
 - 한 논리적 제출 payload에는 같은 `Idempotency-Key`를 사용하고 payload가 바뀌면 새 key를 사용한다.
 
-### 생성 결과와 오류 (`AS-IS`)
+### 생성 결과와 오류 (`Current behavior`)
 
 - `202 Accepted`는 실행 완료가 아니라 접수 성공이다.
 - 응답의 Run ID, status, testCaseCount, target과 createdAt을 보존한다.
 - 접수 후 즉시 Run 상세 화면 또는 진행 확인 흐름으로 이동한다.
 - `TEST_SUITE_EMPTY`, `IDEMPOTENCY_KEY_CONFLICT`, validation과 network 결과 불명을 구분한다.
 
-생성 후 Result Detail로 이동한다. network 결과 불명에서는 동일 payload/key를 유지하며 화면 이탈 후 복원과 장기 보존은 `미결정`이다.
+생성 후 Result Detail로 이동한다. network 결과 불명에서는 동일 payload/key를 유지한다. 화면 이탈 후 key 복원과 장기 보존은 구현되어 있지 않다.
 
 ## 7. 실행 이력
 
@@ -172,33 +171,24 @@ TestSuite
 
 TestRun의 진행 단계, 처리 결과와 Quality Gate를 독립적으로 확인하고 상세로 이동한다.
 
-### 현재 동작 (`AS-IS`)
+### 현재 동작 (`Current behavior`)
 
 - `GET /api/v1/test-runs`를 호출하고 API data, 빈 결과와 오류를 구분한다.
 - lifecycle status, execution outcome, Quality Gate status와 progress를 표시한다.
 - 화면 filter는 제한적이며 OpenAPI의 전체 filter/sort/page와 연결되지 않았다.
 - 자동 갱신이나 진행 Run Polling은 목록에 연결되지 않았다.
 
-### 목표 목록 (`TO-BE`)
+### 목록 데이터 원칙 (`Current behavior`)
 
 각 행은 다음 축을 혼합하지 않고 표시한다.
 
 - lifecycle: `QUEUED`, `PREPARING`, `RUNNING`, `FINISHED`
-- outcome: `COMPLETED`, `ERROR`, `INCOMPLETE` 또는 결정 전 `null`
-- Quality Gate: `PASS`, `FAIL`, `NOT_EVALUATED` 또는 결정 전 `null`
+- outcome: `COMPLETED`, `ERROR`, `INCOMPLETE` 또는 계약상 nullable `null`
+- Quality Gate: `PASS`, `FAIL`, `NOT_EVALUATED` 또는 계약상 nullable `null`
 - progress: processed TestCase 수와 percent
 - TestSuite ID와 실행 시각
 
-서버가 목록 응답에 제공하지 않는 Suite 이름, target revision 또는 상세 metrics를 목록 값처럼 만들지 않는다.
-
-다음 server query를 사용할 수 있다.
-
-- page, size와 sort
-- testSuiteId
-- 반복 가능한 status, executionOutcome, qualityGateStatus
-- createdFrom, createdTo
-
-filter URL 보존, 진행 Run 자동 갱신과 refresh interval은 `미결정`이다.
+서버가 목록 응답에 제공하지 않는 Suite 이름, target revision 또는 상세 metrics를 목록 값처럼 만들지 않는다. 현재 `RunsView`는 ID/Suite ID 검색과 lifecycle filter를 제공하며 목록 자체를 자동 polling하지 않는다. 추가 server filter, URL query 보존은 구현되어 있지 않다.
 
 ## 8. Run 결과 상세
 
@@ -206,7 +196,7 @@ filter URL 보존, 진행 Run 자동 갱신과 refresh interval은 `미결정`�
 
 현재 Run 자체의 Application 실행 상태, 관측된 동작, 기대 일치 여부와 Quality Gate를 이해한다. Regression은 이 화면의 기본 판정에 섞지 않고 **요약/진입점만 제공**하며, 상세 비교는 별도 Regression Detail에서 수행한다.
 
-### 현재 동작 (`AS-IS`)
+### 현재 동작 (`Current behavior`)
 
 - `ResultDetailView`가 Run 상세와 결과 endpoint를 호출한다.
 - 단일 Application 실행, 관측된 동작, 기대 일치 여부와 판정 유형을 표시한다.
@@ -217,9 +207,9 @@ filter URL 보존, 진행 Run 자동 갱신과 refresh interval은 `미결정`�
 - `RegressionSummaryEntry`가 선택된 historical Run과의 악화/개선/변화 없음/비교 불가 집계를 상단에 표시하고 `회귀 상세 보기` action을 제공한다.
 - Result Detail에서는 전체 Regression case table을 렌더링하지 않는다.
 - 다른 1차 화면으로 이동한 뒤 Sidebar의 결과 상세를 다시 선택하면 현재 세션에서 마지막으로 확인한 Run으로 복귀한다.
-- Application 자연어 응답과 legacy 한 Run 내부 Baseline/Candidate diff를 표시하지 않는다.
+- Application Response는 결과 목록 payload에 없으며 Snapshot 상세 dialog 안의 전용 detail component가 별도 상세 API로 조회한다. 원문은 기본 접힘 상태이고 사용자가 표시 action을 선택할 수 있다. legacy 한 Run 내부 Baseline/Candidate diff는 표시하지 않는다.
 
-### 8.1 Run 요약 (`AS-IS`)
+### 8.1 Run 요약 (`Current behavior`)
 
 - TestSuite ID
 - 단일 Application Target type, identifier, required model과 optional revision
@@ -244,7 +234,7 @@ lifecycle 완료는 Quality Gate PASS와 별개의 상태다.
 오판정도 포함하므로 “평가 성공”이 아니라 “평가 완료”라고 표현한다. Quality Gate PASS는 Attention
 결과가 0건이라는 의미로 사용하지 않는다.
 
-### 8.2 개별 결과 (`AS-IS`)
+### 8.2 개별 결과 (`Current behavior`)
 
 `GET /api/v1/test-runs/{testRunId}/results`의 paginated item을 다음 의미 중심 열로 표시한다.
 
@@ -254,11 +244,11 @@ lifecycle 완료는 Quality Gate PASS와 별개의 상태다.
 | 테스트 위험도 | CRITICAL, HIGH, MEDIUM, LOW |
 | 결과 | 정상 허용, 정상 차단, 과차단, 차단 누락 또는 판정 미완료와 판정 흐름 |
 | 처리 상태 | `SUCCEEDED`, `FAILED`, `TIMED_OUT`, `NOT_STARTED`의 사용자용 표현 |
-| 상세 | 입력, 기대 동작, 관측된 동작, 기대 일치 여부, 판정 유형과 안전한 오류 정보 dialog |
+| 상세 | 입력, 기대 동작, 관측된 동작, 기대 일치 여부, 판정 유형, 안전한 오류 정보와 Application Response 상세 조회를 포함하는 dialog |
 
 - 실행 실패를 assertion FAIL로 바꾸지 않는다.
 - verdict가 없는 항목을 TP/TN/FP/FN으로 추정하지 않는다.
-- API가 공개하지 않는 Application 자연어 응답은 조회·저장·표시하지 않는다.
+- 결과 목록에는 Application Response가 없다. Snapshot 상세 dialog에서 상세 API를 별도로 호출해 `applicationResponse`를 조회하며 nullable 응답은 저장된 응답이 없는 상태로 표시한다. 응답이 존재하면 기본 접힘과 명시적인 보기/숨기기 action으로 원문을 표시한다.
 - provider 원문, stack trace나 내부 오류를 표시하지 않는다.
 - FINISHED 전 `TEST_RUN_NOT_FINISHED`는 빈 결과가 아니라 진행 상태 재확인으로 처리한다.
 
@@ -280,7 +270,7 @@ lifecycle 완료는 Quality Gate PASS와 별개의 상태다.
 - 확인 필요 유형이 선택된 조회에서는 해당 선택의 영향을 받지 않는 `facets.allResults`로 전체 결과 수를 확인한다. 일반 filter가 없을 때 이 수치와 고정 `testCaseCount`가 다르면 결과 데이터 불일치로 안내한다.
 - page, size와 sort도 결과 endpoint에 함께 전달할 수 있다.
 
-### 8.3 기대·관측 동작 매트릭스 (`AS-IS`)
+### 8.3 기대·관측 동작 매트릭스 (`Current behavior`)
 
 `GET /api/v1/test-runs/{testRunId}/evaluator-metrics`를 사용해 서버가 집계한 TP/TN/FP/FN count와 FP/FN rate를 표시한다.
 
@@ -299,7 +289,7 @@ lifecycle 완료는 Quality Gate PASS와 별개의 상태다.
 
 Evaluator metrics API 값은 현재 Result Detail에서 Quality Gate와 구분된 기대·관측 동작 매트릭스로 표시한다. API/내부 계약의 TP/TN/FP/FN enum은 유지하되 화면에서는 각각 `정상 차단 / 정상 허용 / 과차단 / 차단 누락`을 주 표기로 사용한다.
 
-### 8.4 Regression 요약/진입점 (`AS-IS`)
+### 8.4 Regression 요약/진입점 (`Current behavior`)
 
 `RegressionSummaryEntry`는 Result Detail 상단의 보조 요약 컴포넌트다.
 
@@ -319,7 +309,7 @@ Evaluator metrics API 값은 현재 Result Detail에서 Quality Gate와 구분�
 
 ## 9. Regression 상세
 
-### 목적 (`AS-IS`)
+### 목적 (`Current behavior`)
 
 현재 Run과 backend가 comparable로 반환한 과거 FINISHED Run의 저장 결과를 전용 화면에서 비교한다. Quality Gate와 Regression은 독립된 기능이다.
 
@@ -360,18 +350,9 @@ Regression Detail은 기존 `RegressionComparisonSection`과 `regressionService`
 
 ## 10. Polling
 
-현재 `useLiveRunProgress`는 Run 상세를 즉시 조회하고 고정 간격으로 반복하며 `FINISHED`에서 중단한다. 화면 연결 범위와 abort/error 복구는 불완전하다. (`AS-IS`)
+현재 `ResultDetailView`는 `useLiveRunProgress`로 Run 상세를 즉시 조회하고 기본 3초 간격으로 반복한다. 숨겨진 탭에서는 최소 10초 간격을 사용한다. `FINISHED`, `INVALID_RESPONSE`, 408/429를 제외한 4xx 또는 transient failure 5회 도달 시 자동 갱신을 멈춘다. Run 변경·화면 이탈 시 timer와 request를 정리한다. (`Current behavior`)
 
-목표 동작은 다음과 같다. (`TO-BE`)
-
-1. Run 선택 또는 생성 직후 상세를 즉시 조회한다.
-2. 진행 상태이면 progress와 마지막 갱신 시각을 표시한다.
-3. Run 변경과 화면 이탈 시 이전 timer/request를 취소한다.
-4. 늦게 도착한 이전 Run 응답이 현재 화면을 덮어쓰지 않게 한다.
-5. `FINISHED`에서 중단하고 결과 및 metrics 조회를 활성화한다.
-6. 일시 오류 후 이전 data를 유지하면 stale임을 표시한다.
-
-interval, backoff, background tab과 최대 지속 시간은 `미결정`이다.
+현재 동작과 retry 경계는 위에 기록했다. 최대 전체 대기 시간과 추가 사용자 안내는 구현되어 있지 않다. 변경 제안은 별도 Issue에서 승인한다.
 
 ## 11. 화면별 구현 이슈 추적
 
