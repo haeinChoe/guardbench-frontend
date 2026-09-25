@@ -1,26 +1,25 @@
 # 프론트엔드 사용자 흐름
 
-> Status: AS-IS / TO-BE / 미결정
+> Status: APPROVED
 > Owner: Frontend
-> Last reviewed: 2026-09-04
+> Last reviewed: 2026-09-25
+> Canonical source: GitHub repository (`src/App.tsx`, `src/routing/`, views and hooks)
 > Scope: GitHub Issues #33, #62, #72, #86
-> Implementation baseline: PR #88 (`agent/72-regression-result-detail-docs`)
-> #86 갱신: 단일 Target 생성 계약과 결과·회귀 화면의 평가 정책 metadata 제거를 반영한다.
 > Canonical API: [`../api/openapi.yaml`](../api/openapi.yaml) (`APPROVED`)
 > Screen specification: [`screen-spec.md`](screen-spec.md)
 > API consumption contract: [`../contracts/api-integration.md`](../contracts/api-integration.md)
 
-이 문서는 TestSuite 준비부터 Application TestRun 실행, Evaluator 결과 검토와 Regression 비교까지 사용자의 목표와 상태 전이를 연결한다. Regression comparison 기능과 Backend comparison API 소비는 MVP 필수이며, Result Detail은 요약/진입점만 제공하고 상세 비교는 별도 Regression Detail 화면에서 수행한다. API schema를 복제하지 않고 최신 OpenAPI의 endpoint와 schema를 참조한다.
+이 문서는 source에서 확인한 사용자 흐름과 상태 전이를 승인 기준으로 기록한다. 미구현 사용자 흐름은 `DRAFT`로 분리하며, API schema를 복제하지 않고 Backend OpenAPI와 API 연동 계약을 참조한다.
 
 ## 1. 읽는 방법
 
 | 표기 | 의미 |
 | --- | --- |
-| `AS-IS` | 기준 구현에서 관찰되는 현재 흐름 |
-| `TO-BE` | OpenAPI에서 직접 도출되는 승인된 목표 흐름 |
-| `미결정` | 별도 제품·UI Decision이 필요한 흐름 |
+| `Current behavior` | 현재 source에서 확인한 사용자 흐름 |
+| `DRAFT` | 구현 또는 별도 승인이 필요한 흐름 제안 |
+| `Decision needed` | 별도 Issue 또는 ADR에서 결정할 흐름 정책 |
 
-각 단계의 data 출처는 실제 `API`, 명시적 `demo/mock`, `local UI state`로 구분한다. API 실패 또는 실제 빈 결과를 mock 성공으로 바꾸지 않는다.
+각 단계의 data 출처는 실제 `API` 또는 `local UI state`다. `VITE_DATA_MODE=demo`는 현재 banner만 표시하고 fixture data를 제공하지 않는다. API 실패 또는 실제 빈 결과를 mock 성공으로 바꾸지 않는다.
 
 ## 2. 전체 사용자 여정
 
@@ -47,7 +46,7 @@ flowchart TD
 
 필수 핵심 흐름은 하나의 Application Target을 실행하고 관측된 동작과 assertion을 확인하는 것이다. Regression은 현재 Run의 Quality Gate 입력이 아니며, 사용자가 필요할 때 과거 comparable Run과 별도로 비교한다. 이 비교 기능 자체와 comparison API 소비는 MVP 필수다.
 
-현재 구현은 Suite/TestCase 관리, Target/Profile Run 생성, Polling, 결과와 Evaluator metrics 검토, comparable Run 조회와 저장 결과 비교까지 API에 연결한다. Result Detail에는 `RegressionSummaryEntry`가 있고, 상세 비교는 `RegressionDetailView`에서 수행한다. (`AS-IS`)
+현재 구현은 Suite/TestCase 관리, 단일 Application Target으로 Run 생성, Polling, 결과와 Evaluator metrics 검토, comparable Run 조회와 저장 결과 비교를 API에 연결한다. Result Detail에는 `RegressionSummaryEntry`가 있고, 상세 비교는 `RegressionDetailView`에서 수행한다. (`Current behavior`)
 
 ## 3. TestSuite와 TestCase 준비
 
@@ -103,7 +102,7 @@ Suite 생성은 다음 두 정상 흐름을 지원한다.
 
 ## 4. TestRun 생성
 
-### 사용자 목표 (`TO-BE`)
+### 사용자 목표
 
 TestSuite와 테스트할 Application을 선택하고 실행 요청을 중복 없이 접수한다.
 
@@ -137,11 +136,11 @@ TestCase의 기대 동작과 Backend가 관측한 동작을 비교하며, 사용
 
 사용자가 Evaluator provider/type, Guardrail identifier/version이나 Snapshot ID를 직접 입력하지 않는다.
 
-### 4.2 현재 흐름 (`AS-IS`)
+### 4.2 현재 흐름 (`Current behavior`)
 
 현재 화면은 Suite 목록을 API로 조회하고 `testSuiteId`, URL/model/revision을 가진 단일 `target`, 선택적인 `qualityGatePolicy`를 최신 `TestRunCreateReq`로 전송한다. 사용자가 입력한 퍼센트는 0~1 비율로 변환하며 두 기준을 모두 비우면 정책을 생략한다. 접수 성공 시 Run 상세로 이동하며 결과 불명 network 오류에서는 동일 payload와 Idempotency-Key를 유지한다.
 
-### 4.3 접수와 멱등성 (`AS-IS`)
+### 4.3 접수와 멱등성 (`Current behavior`)
 
 1. 한 논리적 제출 시도에 하나의 Idempotency-Key를 연결한다.
 2. 사용자가 제출하면 같은 key와 request body로 한 번 접수한다.
@@ -150,7 +149,7 @@ TestCase의 기대 동작과 Backend가 관측한 동작을 비교하며, 사용
 5. 응답을 받지 못해 결과가 불명확한 경우 동일 body 재전송에 같은 key를 사용한다.
 6. 다른 body에 같은 key를 재사용하지 않는다.
 
-현재 key는 payload fingerprint별로 메모리에 보존하며 network 결과 불명에서 재사용하고 성공 또는 명시적 서버 거부 후 폐기한다. 화면 이탈 후 복원과 장기 보존은 `미결정`이다.
+현재 key는 payload fingerprint별로 메모리에 보존하며 network 결과 불명에서 재사용하고 성공 또는 명시적 서버 거부 후 폐기한다. 화면 이탈 후 복원과 장기 보존은 구현되어 있지 않다.
 
 ### 4.4 생성 오류 분기
 
@@ -180,7 +179,7 @@ TestCase의 기대 동작과 Backend가 관측한 동작을 비교하며, 사용
 
 `FINISHED`는 성공만을 의미하지 않는다. ERROR 또는 INCOMPLETE로 종료될 수 있으며 Gate FAIL도 HTTP 조회 실패가 아니다.
 
-### Polling 흐름 (`TO-BE`)
+### 현재 Polling 흐름 (`Current behavior`)
 
 ```mermaid
 stateDiagram-v2
@@ -204,7 +203,7 @@ stateDiagram-v2
 5. 늦게 도착한 이전 응답을 현재 Run에 적용하지 않는다.
 6. FINISHED에서 Polling을 중단한다.
 
-일시 오류 허용 횟수, backoff, background tab, 최대 대기와 수동 재시도 배치는 `미결정`이다.
+현재 polling은 기본 3초 간격이며 hidden tab에서는 최소 10초로 늦춘다. 일시 오류는 최대 5회까지 재시도하고, 4xx terminal 오류(408, 429 제외)와 invalid response에서는 멈춘다. 사용자는 상세 화면의 재시도 action으로 polling을 다시 시작할 수 있다. 최대 전체 대기 시간은 설정하지 않았다.
 
 ## 6. 현재 Run 결과 검토
 
@@ -274,7 +273,7 @@ filter는 저장된 Run 결과를 다시 실행하거나 재평가하지 않고,
 
 filter가 적용된 현재 page로 전체 TP/TN/FP/FN metrics나 Quality Gate를 다시 계산하지 않는다. 전체 집계는 evaluator-metrics와 Run 상세 응답을 source of truth로 사용한다.
 
-### 6.5 현재 구현 (`AS-IS`)
+### 6.5 현재 구현 (`Current behavior`)
 
 현재 결과 화면은 단일 Application 실행, 관측된 동작, 기대 일치 여부, 판정 유형과 안전한 오류를 표시한다. 결과 filter/page, evaluator-metrics와 Quality Gate는 각 서버 응답을 독립적으로 사용한다.
 
@@ -282,7 +281,7 @@ filter가 적용된 현재 page로 전체 TP/TN/FP/FN metrics나 Quality Gate를
 
 ## 7. 판정 분석
 
-### 사용자 목표 (`AS-IS`)
+### 사용자 목표 (`Current behavior`)
 
 관측된 동작이 테스트 케이스의 기대 동작과 어떻게 일치했는지 집계 관점에서 검토한다.
 
@@ -296,7 +295,7 @@ filter가 적용된 현재 page로 전체 TP/TN/FP/FN metrics나 Quality Gate를
 
 ## 8. 과거 Run과 Regression 비교
 
-### 사용자 목표 (`AS-IS`)
+### 사용자 목표 (`Current behavior`)
 
 Result Detail에서 Regression의 존재를 빠르게 인지한 뒤, 별도 Regression Detail 화면으로 이동해 현재 Run과 backend가 comparable로 판정한 과거 FINISHED Run의 저장 결과를 비교한다.
 
@@ -355,22 +354,18 @@ Regression Detail은 Result Detail의 drill-down 화면이다. 현재 앱은 loc
 
 ## 10. 화면과 API 추적표
 
-| 사용자 목표 | 화면 | Endpoint | 구현 상태 |
-| --- | --- | --- | --- |
-| Suite 목록·생성 | 테스트 스위트 | `GET/POST /api/v1/test-suites` | 부분 구현 |
-| Suite 상세·수정 | 테스트 스위트 | `GET/PATCH /api/v1/test-suites/{suiteId}` | UI 일부 미구현 |
-| TestCase 목록·생성 | TestCase 관리 | `GET/POST /api/v1/test-suites/{suiteId}/test-cases` | 부분 구현 |
-| TestCase 상세·수정·삭제 | TestCase 관리 | `GET/PATCH/DELETE /api/v1/test-cases/{testCaseId}` | 수정 UI 일부 미구현 |
-| Run 생성 | 새 테스트 실행 | `POST /api/v1/test-runs` | 최신 Target/Profile 계약 구현, #60 |
-| Run 이력 | 실행 이력 | `GET /api/v1/test-runs` | 기본 조회 구현, filter/page 미완성 |
-| Run 진행·요약 | 결과 상세 | `GET /api/v1/test-runs/{testRunId}` | 구현 |
-| 개별 결과 | 결과 상세 | `GET /api/v1/test-runs/{testRunId}/results` | 구현 |
-| Evaluator metrics | Evaluator 분석 | `GET /api/v1/test-runs/{testRunId}/evaluator-metrics` | 구현 |
-| Regression 진입 가능 여부 | Result Detail summary entry | `GET /api/v1/test-runs/{testRunId}/comparable-runs` | 구현, #72/PR #88 |
-| 비교 후보 | Regression Detail | `GET /api/v1/test-runs/{testRunId}/comparable-runs` | 구현, #30/PR #71 재사용 |
-| Run 비교 | Regression Detail | `GET /api/v1/test-runs/{currentRunId}/comparisons/{comparisonRunId}` | 구현, #30/PR #71 재사용 |
+| 사용자 목표 | 화면/source owner | 현재 구현 |
+| --- | --- | --- |
+| Suite 조회·생성 | `SuitesView`, `CreateSuiteModal` | API 조회·생성, loading/empty/error 구분 |
+| Suite 및 TestCase 관리 | `SuiteDetailModal`, `BulkTestCaseCreatePanel` | 단건 생성/수정/삭제, paginated 조회, bulk JSON/CSV 등록 |
+| TestRun 생성 | `NewRunView`, `testRunService` | 단일 Application Target과 선택 Quality Gate 기준으로 접수 |
+| Run 이력 | `RunsView` | 목록 조회, ID/Suite ID 검색, lifecycle filter |
+| Run 결과·Gate | `ResultDetailView`, `useLiveRunProgress` | 상세 polling, paginated/filter 결과, 서버 Quality Gate evidence |
+| Regression 비교 | `App`, `useRegressionComparison`, Regression views | comparable Run 선택과 summary/detail comparison 조회 |
 
-## 11. 미결정 사항
+Endpoint, method, request/response shape는 [API 연동 계약](../contracts/api-integration.md)과 Backend OpenAPI에서 관리하며 이 표에서는 반복하지 않는다.
+
+## 11. Decision backlog
 
 - Run 생성 후 기본 이동 화면과 navigation 복원
 - Idempotency-Key 생성·저장·폐기 정책
@@ -381,7 +376,7 @@ Regression Detail은 Result Detail의 drill-down 화면이다. 현재 앱은 loc
 - Regression Detail의 세부 시각적 표현과 action transition 표시 방식
 - report/export 범위
 
-Application 자연어 응답 비공개는 미결정 사항이 아니라 현재 확정된 정책이다.
+Application 자연어 응답 비공개는 현재 확정된 정책이다. 위 backlog 항목은 현재 구현 계약이 아니며, 채택하려면 별도 Issue에서 범위와 요구사항을 승인한다.
 
 ## 12. 검증 근거
 

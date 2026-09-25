@@ -1,5 +1,10 @@
 # OpenAPI 사본 관리
 
+> Status: APPROVED
+> Owner: Frontend
+> Last reviewed: 2026-09-25
+> Canonical source: GitHub repository (`scripts/sync-openapi.mjs`); API schema source is Backend OpenAPI
+
 `guardbench-backend/docs/api/openapi.yaml`이 유일한 canonical source다. 이 디렉터리의
 `openapi.yaml`은 프론트엔드 검토와 타입 계약을 위한 byte-identical 사본이며 직접 수정하지 않는다.
 
@@ -7,7 +12,7 @@
 
 백엔드 저장소의 최신 `dev`를 가져온 뒤 프론트엔드 저장소에서 실행한다.
 
-```powershell
+```bash
 npm run openapi:sync -- --backend-path ../guardbench-backend --ref origin/dev
 ```
 
@@ -19,13 +24,13 @@ npm run openapi:sync -- --backend-path ../guardbench-backend --ref origin/dev
 
 기록된 source commit과 현재 사본의 일치를 확인한다.
 
-```powershell
+```bash
 npm run openapi:verify -- --backend-path ../guardbench-backend
 ```
 
 기록 이후 백엔드 `dev`에 계약 변경이 생겼는지 확인한다.
 
-```powershell
+```bash
 npm run openapi:check-latest -- --backend-path ../guardbench-backend --ref origin/dev
 ```
 

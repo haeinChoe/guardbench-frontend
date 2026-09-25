@@ -63,7 +63,7 @@ Dashboard
 
 ## API 데이터와 Demo 데이터를 분리
 
-Frontend는 실제 API 응답과 데모용 데이터를 구분합니다.
+Frontend는 실제 API 요청과 demo mode 표시를 구분합니다. 현재 `demo` 설정은 UI에 DEMO banner를 표시하지만 fixture 기반 data adapter는 구현되어 있지 않아 화면 데이터 요청은 여전히 API service를 사용합니다.
 
 기본값:
 
@@ -73,15 +73,15 @@ VITE_DATA_MODE=api
 
 API 모드에서는 Backend 오류를 임의의 성공 데이터로 대체하지 않습니다.
 
-데모 데이터를 사용할 경우:
+demo mode 표시를 켜려면:
 
 ```env
 VITE_DATA_MODE=demo
 ```
 
-를 명시하며, UI에서 실제 API 기반 화면과 구분할 수 있도록 Demo 상태를 표시합니다.
+를 명시합니다. 이 설정은 별도 demo data를 공급하지 않습니다.
 
-이 구분은 포트폴리오 화면이 정상적으로 보이기 위해 Backend 오류를 숨기는 형태의 fallback을 피하기 위한 설계입니다.
+API 오류를 demo/mock 성공 응답으로 대체하지 않습니다. 사용 가능한 fixture 기반 demo experience가 필요하면 별도 adapter 구현과 Issue 승인이 필요합니다.
 
 ---
 

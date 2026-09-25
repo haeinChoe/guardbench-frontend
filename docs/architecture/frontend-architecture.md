@@ -1,16 +1,16 @@
 # 프론트엔드 아키텍처
 
-> Status: AS-IS / TO-BE / 미결정
+> Status: APPROVED
 > Owner: Frontend
-> Last reviewed: 2026-09-06
+> Last reviewed: 2026-09-25
+> Canonical source: GitHub repository (`src/`)
 > Scope: GitHub Issues #34, #62, #86, #111, #113
-> AS-IS baseline: `dev@554a2d9705c0cfd4bb25b03ae9dbe779e816a53e`
 > #86 갱신: 단일 Target 생성 계약과 결과·회귀 화면의 평가 정책 metadata 제거를 반영한다.
 > Canonical API: [`../api/openapi.yaml`](../api/openapi.yaml) (`APPROVED`)
 > Product flows: [`../product/screen-spec.md`](../product/screen-spec.md), [`../product/user-flows.md`](../product/user-flows.md)
 > API consumption contract: [`../contracts/api-integration.md`](../contracts/api-integration.md)
 
-이 문서는 현재 프론트엔드의 구조와 최신 OpenAPI를 소비하기 위한 목표 책임 경계를 구분한다. 특정 library 도입이나 대규모 폴더 이동을 승인하지 않으며, API schema와 backend의 evaluation·comparability 규칙을 프론트에서 다시 정의하지 않는다.
+이 문서는 현재 source에서 확인한 프론트엔드 구조와 책임 경계를 승인 기준으로 기록한다. 미래 구조 변경 제안은 `DRAFT`로 표시하며 현재 구조로 취급하지 않는다. 특정 library 도입이나 대규모 폴더 이동을 승인하지 않으며, API schema와 Backend의 evaluation·comparability 규칙을 Frontend에서 다시 정의하지 않는다.
 
 API 요청·응답의 의미와 우선순위는 OpenAPI를 최우선으로 하고, 프론트엔드 소비 규칙은 [API 연동 계약](../contracts/api-integration.md)을 따른다. 이 문서는 해당 계약을 구현하기 위한 상태 소유권, 의존 방향과 계층 경계만 소유한다.
 
@@ -23,94 +23,76 @@ flowchart TD
     App --> Layout[layout]
     App --> Views[views]
     Views --> Common[common components]
-    Views --> Hooks[hooks / application orchestration]
-    Common --> Hooks
-    Hooks --> Services[endpoint services]
-    Services --> Mappers[DTO ↔ UI mapper]
+    Views --> Hooks[local hooks / orchestration]
+    Views --> Services[endpoint services]
+    Hooks --> Services
     Services --> Client[common API client]
     Client --> API[GuardBench REST API]
-    Fixtures[demo / test fixtures] -. explicit mode .-> Views
+    Tests[Node and browser tests] -. fetch stub .-> Views
 ```
 
-목표 의존 방향은 상위 사용자 표현에서 하위 transport로 한 방향으로 흐른다.
+Views와 data-aware modal은 API service를 직접 호출할 수 있고 polling/comparison처럼 여러 화면이 공유하는 orchestration은 hook을 사용한다. `apiClient`가 envelope와 transport 경계를 처리한다. OpenAPI에 없는 값을 화면용 code로 실제 서버 값처럼 보충하지 않는다.
 
-```text
-View / Form
-  → query·mutation hook 또는 application function
-  → endpoint service + mapper
-  → common API client
-  → OpenAPI
-```
-
-하위 계층은 상위 화면을 import하지 않는다. OpenAPI에 없는 값을 mapper나 mock으로 보충해 실제 서버 값처럼 만들지 않는다.
-
-## 2. 현재 구조 (`AS-IS`)
+## 2. 현재 구조 (`Current behavior`)
 
 - `main.tsx`가 React `StrictMode` 아래 `App`을 렌더링한다.
 - `App`이 shell, 현재 view, 선택 Run ID, mobile menu와 toast를 소유한다.
-- router, 전역 server-state 계층과 전역 React error boundary는 없다.
+- 별도 routing library, 전역 server-state 계층과 전역 React error boundary는 없다.
 - `views`와 data-aware modal이 API 호출, loading/error, DTO 변환과 사용자 표현을 함께 담당한다.
 - `services`가 endpoint 함수와 수동 DTO를 소유하고 `apiClient`가 base URL, fetch와 envelope unwrap을 담당한다.
 - `useLiveRunProgress`가 Run 상세 Polling, abort, transient/terminal 오류와 자동 재시도 상한을 처리한다.
 - Suite/TestCase, Run 생성·목록·상세·결과·metrics 화면은 API의 data/empty/error/stale 상태를 구분한다.
 - 최종 사용자 화면 전용 mock data는 두지 않으며 API 화면은 실패를 mock 성공으로 대체하지 않는다.
 
-현재 코드는 최신 OpenAPI의 필수 model을 포함한 단일 Application Target,
-Evaluator 결과와 확정 Quality Gate metrics를 사용한다. comparison DTO도 확정됐지만 선택 UI는 #30의
-별도 구현 범위로 남아 있다.
+현재 코드는 최신 OpenAPI의 필수 model을 포함한 단일 Application Target, Evaluator 결과와 Quality Gate evidence를 사용한다. Regression 후보와 비교 UI도 `RegressionSummaryEntry`, `RegressionDetailView`, `useRegressionComparison`에서 구현되어 있다.
 
 ## 3. 실행과 환경 경계
 
-### 현재 (`AS-IS`)
+### 현재 (`Current behavior`)
 
 - Vite가 dev/build/preview를 담당하고 `tsc -b`가 build 전 TypeScript를 검사한다.
 - `runtimeConfig`는 `VITE_DATA_MODE`와 `VITE_API_BASE_URL`을 읽는다.
 - data mode 기본값은 `api`, base URL 기본값은 `/api/v1`이다.
 - Vite proxy 설정이 없어 상대 base URL의 실제 연결은 배포 환경에 의존한다.
 
-### 목표 (`TO-BE`)
+### 현재 browser configuration rules
 
 - 브라우저 환경 변수에는 secret, provider credential과 내부 Evaluator 설정을 포함하지 않는다.
-- API와 demo mode를 명시적으로 구분하고 잘못된 API 설정을 mock으로 대체하지 않는다.
+- `demo` mode는 현재 banner만 바꾸며 API data source를 대체하지 않는다.
 - Application 자연어 응답은 public API와 frontend state에 포함하지 않는다.
 - build-time 설정, 배포별 주입과 runtime 변경이 필요한 설정의 경계를 문서화한다.
 
-production mock 허용 여부, 설정 누락 시 fail-fast와 runtime config 전달 방식은 `미결정`이다.
+fixture-backed demo adapter와 fail-fast 설정 처리는 구현되어 있지 않다.
 
 ## 4. Navigation과 화면 identity
 
-### 현재 (`AS-IS`)
+### 현재 (`Current behavior`)
 
-- 여섯 view를 `App.currentView`로 조건부 렌더링한다.
-- 선택 Run ID도 `App` memory에만 저장한다.
-- URL이 바뀌지 않아 직접 링크, browser history와 새로고침 복원이 불가능하다.
+- `src/routing/routes.ts`가 pathname을 dashboard, suites, new-run, runs, result, regression 또는 invalid-run으로 해석한다.
+- `App`이 History API navigation과 `popstate`를 처리하고 선택 Run ID를 route에서 복원한다.
+- `/runs/{runId}`와 `/runs/{runId}/regression`은 직접 접근할 수 있으며 잘못된 Run ID는 invalid-run 화면을 표시한다.
+- 목록 filter와 page 상태는 URL query에 보존하지 않는다.
 
-### 목표 책임 (`TO-BE`)
+### 목표 책임 (`DRAFT`)
 
-- 화면 identity와 resource identity를 local modal/form state와 분리한다.
-- Run 상세와 Regression 비교 진입에는 실제 Run ID를 보존한다.
-- `#5001` 같은 화면 장식 문자열을 API ID나 cache identity로 사용하지 않는다.
-- 잘못된 route/ID, resource 404와 정상 빈 collection을 구분한다.
-- navigation으로 Run이 바뀌면 이전 Run의 request와 Polling을 정리한다.
+- filter/page query를 URL에 보존한다.
+- form draft를 화면 이동 뒤 복원한다.
 
-router 도입, canonical URL, filter/page query 보존과 form draft 복원은 `미결정`이다.
+별도 routing library 도입은 현재 구현되지 않았다.
 
 ## 5. 상태 소유권
 
 서버 상태, 파생 표시 상태와 local interaction state를 구분한다.
 
-| 상태 | 서버 source of truth | 목표 소유 단위 | local state와 분리할 항목 |
+| 상태 | 서버 source of truth | 현재 요청·상태 owner | 분리된 local state |
 | --- | --- | --- | --- |
-| Suite 목록 | `GET /test-suites` | query + items/page/filter | 선택 card, 생성 modal |
-| Suite 상세 | `GET /test-suites/{id}` | Suite ID별 query | 편집 form draft |
-| TestCase 목록 | `GET /test-suites/{id}/test-cases` | Suite ID + page/filter | 선택 row, create/edit form |
-| TestCase 상세 | `GET /test-cases/{testCaseId}` | TestCase ID별 query | edit form draft |
-| Run 목록 | `GET /test-runs` | page/filter/sort별 query | 검색 input draft, 선택 Run |
-| Run 상세 | `GET /test-runs/{id}` | Run ID별 query/Polling | tab, 펼침 상태 |
-| Run 결과 | `GET /test-runs/{id}/results` | Run ID + page/filter/sort | 선택 result row |
-| Evaluator metrics | `GET /test-runs/{id}/evaluator-metrics` | Run ID별 독립 query | chart/table 표현 선택 |
-| Comparable Runs | `GET /test-runs/{id}/comparable-runs` | current Run ID + page | 선택 comparison Run |
-| Run comparison | `GET /test-runs/{currentRunId}/comparisons/{comparisonRunId}` | 두 Run ID 조합 | changed-only 등 UI filter |
+| Suite 목록 | `GET /test-suites` | `SuitesView` | 선택 card, 생성 modal |
+| Suite/TestCase 편집 | Suite 및 TestCase service | `SuiteDetailModal` | create/edit draft와 선택 row |
+| Run 목록 | `GET /test-runs` | `RunsView` | 검색·상태 filter |
+| Run 상세와 polling | `GET /test-runs/{id}` | `ResultDetailView` + `useLiveRunProgress` | result selection, filters, tabs |
+| Run 결과 | `GET /test-runs/{id}/results` | `ResultDetailView` | page/filter/sort 상태 |
+| Evaluator metrics | `GET /test-runs/{id}/evaluator-metrics` | `ResultDetailView` | presentation 상태 |
+| Comparable Runs와 comparison | comparison endpoints | `App` + `useRegressionComparison` | 선택 comparison Run 및 화면 state |
 
 ### 5.1 Query identity
 
@@ -121,7 +103,7 @@ query identity는 endpoint 결과를 유일하게 결정하는 입력을 포함�
 - comparison은 current Run ID와 comparison Run ID를 모두 포함한다.
 - 서로 다른 filter/page 결과를 같은 state에 합쳐 전체 collection처럼 취급하지 않는다.
 
-구체 cache key 형식과 library는 `미결정`이다. library가 없어도 이 identity 원칙은 유지한다.
+이 저장소에는 전역 query/cache library가 없다. 각 view 또는 hook이 필요한 resource identity와 갱신 상태를 local React state로 관리한다.
 
 ### 5.2 Nullable와 파생 상태
 
@@ -139,7 +121,7 @@ query identity는 endpoint 결과를 유일하게 결정하는 입력을 포함�
 | --- | --- |
 | common client | base URL, 공통 header, fetch, success envelope, `204`, transport/HTTP/API 오류 |
 | endpoint service | method, path/query/header/body와 API DTO |
-| mapper | API DTO를 화면 model로 손실 없이 변환 |
+| mapping rule | 화면에서 DTO를 표현할 때 nullable/결과 분류를 보존한다. 전역 mapper layer는 없다. |
 | hook/application | query·mutation lifecycle, Polling, request identity, 취소와 동기화 |
 | view | 사용자 action과 loading/empty/error/stale/success 표현 |
 
@@ -153,7 +135,7 @@ query identity는 endpoint 결과를 유일하게 결정하는 입력을 포함�
 - comparison summary와 case별 change/classification은 서버 DTO를 보존하고 프론트에서 재분류하지 않는다.
 - unknown public error code도 stage/message와 함께 보존한다.
 
-수동 DTO 유지, OpenAPI type generation, runtime schema validation과 mapper 위치는 `미결정`이다.
+현재 DTO는 수동 TypeScript type이며 `src/contracts/openapiNullability.contract.ts`가 대표 nullable 조합을 compile-time에서 확인한다. OpenAPI type generation과 runtime schema validation은 도입하지 않았다.
 
 ## 7. TestRun 생성 mutation
 
@@ -177,7 +159,7 @@ flowchart LR
 - network/timeout은 접수 여부가 불명일 수 있으므로 명시적 validation/API 거부와 구분한다.
 
 현재 화면은 Quality Gate 정책을 포함한 payload fingerprint별 key를 보존하고 network 결과 불명에서는 재사용하며 성공 또는 명시적
-서버 거부 후 폐기한다. 화면 이탈 후 key 복원과 장기 보존은 `미결정`이다.
+서버 거부 후 폐기한다. 화면 이탈 후 key 복원과 장기 보존은 구현되어 있지 않다.
 
 ## 8. Polling 구조
 
@@ -211,7 +193,7 @@ stateDiagram-v2
 - `TEST_RUN_NOT_FOUND` 같은 terminal API 오류와 일시 transport 오류를 분리한다.
 - results, evaluator-metrics 또는 비교 조회에서 `TEST_RUN_NOT_FINISHED`가 발생하면 terminal 오류나 empty로 확정하지 않고 Run detail을 다시 확인한다.
 
-interval, backoff, jitter, background tab과 최대 지속 시간은 `미결정`이다.
+기본 간격은 3초, document가 hidden이면 최소 10초다. transient error는 최대 5회 재시도하고 408/429를 제외한 4xx와 `INVALID_RESPONSE`에서 자동 갱신을 중단한다. 최대 전체 대기 시간은 없다.
 
 ## 9. 결과와 Evaluator 분석 경계
 
@@ -293,30 +275,27 @@ comparability 규칙을 프론트에서 복제하거나 같은 Suite라는 이�
 - server가 공개하지 않은 provider 원문과 내부 예외를 노출하지 않는다.
 - unknown code는 버리지 않고 안전한 일반 표현과 진단 context를 유지한다.
 
-현재 global error boundary, logging/observability와 인증 오류 정책은 없다. 도구와 사용자 문구는 `미결정`이다.
+현재 global error boundary와 공통 logging/observability 계층은 없다. 인증 오류 UX도 구현하지 않았다.
 
 ## 13. Demo, mock과 fixture
 
-- 실제 API mode와 demo mode를 runtime config에서 명시적으로 구분한다.
-- API data와 mock item을 같은 collection에 섞지 않는다.
-- API 실패·empty를 mock 성공으로 대체하지 않는다.
-- 정적 대시보드 자료에는 demo 출처를 표시한다. 아키텍처 설명은 저장소 문서에서 관리한다.
-- test fixture는 OpenAPI의 required/nullable/error 조합을 따라야 하지만 contract test를 대신하지 않는다.
-- legacy Baseline/Candidate fixture는 새 TestRun 목표 model의 fixture로 재사용하지 않는다.
+- `runtimeConfig`는 `VITE_DATA_MODE`를 읽고 기본값을 `api`로 둔다. 현재 `demo` 선택은 App에 DEMO banner를 표시하지만 별도 demo adapter나 fixture data source를 선택하지 않는다.
+- API 화면은 여전히 API service를 호출하며 API 실패·empty를 mock 성공으로 대체하지 않는다.
+- Browser test의 API fixtures는 `tests/browser/support/apiStub.ts`에서 관리하고 실제 Backend contract를 대신하지 않는다.
 
-fixture 위치, production demo 허용과 API/mock adapter interface는 `미결정`이다.
+별도 demo data adapter와 실제 사용자용 fixture 화면은 구현되어 있지 않다. demo mode가 data source를 전환해야 한다면 별도 Issue에서 동작과 운영 경계를 승인해야 한다.
 
 ## 14. Component 책임
 
-### 현재 (`AS-IS`)
+### 현재 (`Current behavior`)
 
-- `App`: shell, view 전환, 선택 Run과 toast
+- `App`: shell, route 전환, 선택 Run, Regression orchestration과 toast
 - `layout`: sidebar/topbar와 mobile navigation
 - `views`: 화면 composition + request + mapping + 상태 표현
 - `common`: 표시 component와 data-aware modal 혼재
-- `hooks`: 미연결 Polling orchestration
+- `hooks`: Run progress polling과 Regression 조회 orchestration
 
-### 목표 (`TO-BE`)
+### 목표 (`DRAFT`)
 
 - view는 화면 composition과 사용자 상태 표현을 소유한다.
 - form은 draft/validation/submission을 소유하되 HTTP envelope를 해석하지 않는다.
@@ -342,13 +321,14 @@ src/
 ├─ contracts/
 ├─ hooks/
 ├─ services/
-├─ mocks/
+├─ routing/
 ├─ types/
+├─ utils/
 ├─ App.tsx
 └─ main.tsx
 ```
 
-### 목표 규칙
+### 계층 규칙
 
 - common client와 services는 React component를 import하지 않는다.
 - common display component는 특정 view/service를 import하지 않는다.
@@ -362,16 +342,16 @@ feature-based 폴더, query library와 generated API package 도입은 이 문�
 
 ## 16. 테스트 전략
 
-### 현재 (`AS-IS`)
+### 현재 (`Current behavior`)
 
 - `npm test`는 Node test runner 기반 순수 로직·계약 테스트를 실행한다.
 - `npm run test:component`는 Vitest Browser Mode와 Playwright provider로 React 컴포넌트를 실제 Chromium에 렌더링한다.
 - browser component test는 role·label 기반 상호작용, focus, portal과 실제 CSS layout을 검증하며 공통 fetch stub으로 API를 결정적으로 대체한다.
-- 현재 workflow는 `main` 대상 PR/push에서 Node test와 build 검증에 더해 독립된 `Component Test (Chromium)` job을 실행한다. dev 배포는 두 job이 모두 성공해야 시작한다.
+- `deploy.yml`은 `dev` 또는 `main` 대상 PR에서 lint, Node test, build와 별도 Chromium component-test job을 실행한다. `main` push에서는 같은 검증을 거친 뒤 build artifact를 dev에 배포한다. `component-release.yml`은 수동 release workflow다.
 - `src/contracts/openapiNullability.contract.ts`는 `tsc -b`에서 OpenAPI의 대표 required + nullable DTO 조합을 compile-time contract로 검증한다.
 - 실제 backend를 포함하는 자동화 E2E와 OpenAPI fixture 기반 contract test는 아직 없다.
 
-### 목표 검증 경계
+### 검증 경계
 
 | 수준 | 주요 검증 |
 | --- | --- |
@@ -391,27 +371,11 @@ feature-based 폴더, query library와 generated API package 도입은 이 문�
 - current Run 변경 시 metrics/comparison state 격리
 - Application 원문이 DTO·UI·log에 포함되지 않음
 
-테스트 작성·mock·실행 규칙은 [`../testing.md`](../testing.md)를 따른다. 실제 backend를 사용하는 E2E 범위와 별도 환경은 `미결정`이다.
+테스트 작성·mock·실행 규칙은 [`../testing.md`](../testing.md)를 따른다. 실제 Backend E2E test와 별도 환경은 구현되어 있지 않다.
 
-## 17. 구현 순서와 Decision
+## 17. 기록된 결정
 
-| 순서 | 구현 범위 | 관련 이슈 |
-| --- | --- | --- |
-| 1 | 생성 DTO와 단일 Application Target form | #27 / #60 구현, #86 판정 설정 제거 |
-| 2 | Run detail/results DTO, mapper와 결과 화면 | #28 / #61 완료 |
-| 3 | Evaluator metrics query와 분석 화면 | #29 완료 |
-| 4 | comparable-runs와 comparison UI | #30 선택 구현 |
-
-별도 Decision 후보:
-
-- router와 URL 상태
-- OpenAPI generated type/runtime validation
-- query/cache library
-- Idempotency-Key 보존
-- Polling retry/backoff
-- global error boundary와 observability
-- explicit demo adapter
-- 실제 backend E2E 환경
+승인된 현재 결정은 [ADR index](../decisions/README.md)에 둔다. 새 router, query/cache library, generated API types, demo data adapter, global error boundary, observability, 또는 Backend E2E 환경은 현재 구현이나 승인 결정으로 간주하지 않는다. 제안이 필요하면 별도 Issue/ADR에서 근거와 범위를 먼저 승인한다.
 
 ## 18. 검증 근거
 
@@ -421,7 +385,7 @@ feature-based 폴더, query library와 generated API package 도입은 이 문�
 - [`../product/user-flows.md`](../product/user-flows.md)
 - `src/main.tsx`, `src/App.tsx`
 - `src/components/layout`, `src/components/views`, `src/components/common`
-- `src/config`, `src/services`, `src/hooks`, `src/types`, `src/mocks`
+- `src/config`, `src/routing`, `src/services`, `src/hooks`, `src/types`, `src/contracts`, `src/utils`
 - `package.json`, `vite.config.ts`, `tsconfig.app.json`
 - GitHub Issues #27, #28, #29, #30, #34
 

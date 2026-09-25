@@ -1,19 +1,18 @@
 # 프론트엔드 API 연동 계약
 
-> Status: AS-IS / TO-BE / 미결정
+> Status: APPROVED
 > Owner: Frontend
-> Last reviewed: 2026-09-04
+> Last reviewed: 2026-09-25
+> Canonical source: GitHub repository (`src/services/`, `src/types/`, `src/components/views/`)
 > Scope: GitHub Issues #32, #62, #72, #86
-> Implementation baseline: PR #88 (`agent/72-regression-result-detail-docs`)
-> #86 갱신: 단일 Target 생성 계약과 결과·회귀 화면의 평가 정책 metadata 제거를 반영한다.
 > Canonical API: [`../api/openapi.yaml`](../api/openapi.yaml) (`APPROVED`)
 
-이 문서는 GuardBench 프론트엔드가 승인된 OpenAPI를 화면에서 소비하는 경계를 정의한다. API endpoint, schema, enum, validation과 오류 code의 소유자는 OpenAPI다. 이 문서는 schema를 다시 정의하지 않고 DTO를 화면 상태로 변환하는 원칙과 사용자 표현 책임만 소유한다.
+이 문서는 현재 구현에서 확인한 Frontend API 소비 계약을 정의한다. 제안은 `DRAFT`로 표시하고 승인된 규칙과 구분한다. API endpoint, schema, enum, validation과 오류 code의 소유자는 Backend OpenAPI다. 이 문서는 schema를 다시 정의하지 않고 DTO를 화면 상태로 변환하는 원칙과 사용자 표현 책임만 소유한다.
 
 ## 1. 판단 기준
 
-- `TO-BE`는 현재 저장소의 [`openapi.yaml`](../api/openapi.yaml)에서 직접 도출할 수 있는 소비 규칙이다.
-- 현재 코드가 OpenAPI와 다르면 코드 동작을 `AS-IS` 불일치로 기록하며 목표 계약으로 승격하지 않는다.
+- 승인된 소비 규칙은 현재 source에서 확인한 동작과 함께 기록한다.
+- 아직 구현되지 않은 소비 제안은 `DRAFT`로 표시하며, OpenAPI에 직접 정의된 API 계약과 혼동하지 않는다.
 - OpenAPI가 확정하지 않은 실행 오류 code 전체 목록, 재시도 또는 인증 정책은 프론트엔드가 추측하지 않는다.
 - 특정 provider, Evaluator type 또는 Guardrail identifier/version은 사용자가 제출하는 TestRun 입력이 아니다.
 - 다른 문서와 이 문서가 충돌하면 API 요청·응답 의미는 OpenAPI를 우선한다.
@@ -151,14 +150,14 @@ mapper는 다음 규칙을 따른다.
 
 JSON 성공 응답은 공통 envelope의 `httpStatus`, `message`, `data`를 사용한다. 공통 client는 envelope를 검증한 뒤 endpoint service에 `data`를 반환한다.
 
-현재 `apiClient`는 다음을 수행한다. (`AS-IS`)
+현재 `apiClient`는 다음을 수행한다. (`Current behavior`)
 
 - `VITE_API_BASE_URL` 또는 `/api/v1`을 base URL로 사용한다.
 - JSON을 parse하고 `httpStatus` 존재 여부를 최소 검증한다.
 - 성공 시 `data`를 반환한다.
 - `204 No Content`는 JSON parsing 없이 `undefined`를 반환한다.
 
-목표 경계는 다음과 같다. (`TO-BE`)
+목표 경계는 다음과 같다. (`DRAFT`)
 
 - HTTP status와 envelope `httpStatus`가 서로 모순되거나 required envelope field가 없으면 정상 data로 사용하지 않는다.
 - `200`, `202` 등 endpoint별 성공 status 차이를 유지한다. mutation 접수와 처리 완료를 같은 의미로 보지 않는다.
@@ -173,14 +172,14 @@ JSON 성공 응답은 공통 envelope의 `httpStatus`, `message`, `data`를 사�
 | 오류 범주 | 예 | 공통 경계의 처리 | 화면 책임 |
 | --- | --- | --- | --- |
 | network | 연결 실패, DNS, offline | HTTP status가 없는 구조화 오류 | 연결 실패와 재시도 가능성 표시 |
-| abort | Run 변경, 화면 이탈, 사용자 취소 | 일반 network 오류와 구분 | 실패 toast를 띄우지 않고 오래된 요청 결과를 폐기 |
-| timeout | client 제한 시간 초과 | abort와 구분 가능한 code 보존 | 상태 불명과 명시적 서버 거부를 구분 |
+| abort | Run 변경 또는 화면 이탈 | `apiClient` 자체는 fetch rejection을 `NETWORK_ERROR`로 바꿀 수 있다. `useLiveRunProgress`는 abort signal을 확인해 결과를 무시한다. | 현재 owner가 있는 polling에서 취소를 사용자 실패로 표시하지 않는다. |
+| timeout | 공통 client timeout은 구현되지 않았다. | 별도 timeout code는 없다. | 필요하면 별도 Issue에서 처리 기준을 정한다. |
 | invalid response | invalid JSON, envelope/shape 불일치 | `INVALID_RESPONSE`와 HTTP status 보존 | 정상 빈 결과로 표시하지 않음 |
 | HTTP/API | 4xx/5xx와 공개 error envelope | status, message, `data.code`, field errors 보존 | endpoint code별 사용자 흐름 선택 |
 | execution result error | HTTP 200 결과 안의 `error` | DTO의 stage/code/message로 보존 | Application/Evaluator 실패를 assertion과 분리 |
 | rendering | React render 예외 | API client에서 처리하지 않음 | error boundary와 복구 UI |
 
-현재 `ApiError`는 HTTP status, code와 validation field errors를 보존하고 JSON/envelope 오류를 구조화한다. 다만 fetch가 던진 abort도 현재는 `NETWORK_ERROR`가 될 수 있어 구분이 필요하다. (`AS-IS` 불일치)
+현재 `ApiError`는 HTTP status, code와 validation field errors를 보존하고 JSON/envelope 오류를 구조화한다. `apiClient`는 AbortError도 fetch rejection으로 받아 `NETWORK_ERROR`로 변환할 수 있다. 취소와 network failure를 구분하는 처리는 아직 구현하지 않았다. (`Current behavior`)
 
 서버가 공개한 안전한 `message`, `code`, validation detail만 사용자 표현 후보로 사용한다. provider 원문, stack trace와 내부 예외를 추출하거나 노출하지 않는다. unknown code도 버리지 않고 일반 오류 표현과 진단 정보에 보존한다.
 
@@ -193,21 +192,20 @@ JSON 성공 응답은 공통 envelope의 `httpStatus`, `message`, `data`를 사�
 - background 갱신 실패 후 이전 성공 data를 유지한다면 반드시 stale/갱신 실패 상태를 함께 표시한다.
 - mutation 성공 후 목록을 낙관적으로 갱신할지 재조회할지는 endpoint별 정책이다. 실패를 성공처럼 반영하지 않는 원칙은 공통이다.
 
-`AbortSignal` 전달 위치, timeout 구현, 중복 GET 제거와 cache library 도입은 `미결정`이다.
+현재 일부 view는 `AbortSignal`로 요청을 취소한다. 공통 timeout, 중복 GET 제거와 cache library는 구현되어 있지 않으며 필요하면 별도 Issue에서 범위를 정한다.
 
 ### 4.7 실제 API와 mock 경계
 
-- 실제 API mode와 demo/mock mode를 명시적으로 구분한다.
-- 실제 API의 성공 data와 mock item을 한 collection에 섞지 않는다.
-- API 실패 또는 성공한 빈 결과를 mock 성공으로 대체하지 않는다.
-- mock fixture도 OpenAPI shape와 nullable 조합을 따라야 하지만 실제 계약 검증의 대체물은 아니다.
-- production에서 mock을 허용할지와 설정 누락 시 fail-fast할지는 별도 Decision으로 확정한다.
+- `VITE_DATA_MODE` 기본값은 `api`다. `demo` 설정은 현재 App의 banner만 바꾸며 data adapter를 전환하지 않는다.
+- 현재 services는 두 설정 모두 API를 호출한다. API 실패 또는 성공한 빈 결과를 mock 성공으로 대체하지 않는다.
+- `tests/browser/support/apiStub.ts`는 browser component test에서만 fetch를 대체한다. stub response는 실제 API 동작이나 계약 검증을 대신하지 않는다.
+- fixture 기반 사용자용 demo adapter는 현재 구현되어 있지 않다. 이를 추가하려면 별도 Issue에서 data source, UI 표시, production 허용 경계를 승인한다.
 
-timeout 값, 자동 재시도 대상, 인증·권한 오류 UX, runtime schema validation과 공통 cache 정책은 OpenAPI가 결정하지 않으므로 `미결정`이다.
+timeout, 공통 자동 재시도, 인증·권한 오류 UX, runtime schema validation과 cache 정책은 OpenAPI가 정하지 않는다. 신규 동작을 도입하려면 Frontend Issue에서 승인한다.
 
 ## 5. TestRun 생성
 
-### 5.1 입력 mapping (`AS-IS`)
+### 5.1 입력 mapping (`Current behavior`)
 
 `TestRunCreateReq`는 다음 사용자 입력을 연결한다.
 
@@ -233,15 +231,15 @@ timeout 값, 자동 재시도 대상, 인증·권한 오류 UX, runtime schema v
 5. 같은 key와 같은 body의 재전송은 기존 Run의 현재 status를 반환할 수 있다.
 6. `TEST_SUITE_EMPTY`, `IDEMPOTENCY_KEY_CONFLICT`를 일반 network 오류와 구분한다.
 
-현재 구현은 Quality Gate 정책까지 포함한 payload fingerprint별 key를 메모리에 보존하고 network 결과 불명에서는 재사용하며, 성공 또는 명시적 서버 거부 후 폐기한다. 화면 이탈 후 복원, 장기 보존과 OpenAPI에 없는 TTL은 `미결정`이다.
+현재 구현은 Quality Gate 정책까지 포함한 payload fingerprint별 key를 메모리에 보존하고 network 결과 불명에서는 재사용하며, 성공 또는 명시적 서버 거부 후 폐기한다. 화면 이탈 후 복원, 장기 보존과 TTL은 구현되어 있지 않다.
 
 ## 6. Run lifecycle, outcome과 Quality Gate
 
 | 축 | 값 | UI 의미 |
 | --- | --- | --- |
 | `status` | `QUEUED`, `PREPARING`, `RUNNING`, `FINISHED` | lifecycle과 Polling 종료 조건 |
-| `executionOutcome` | `COMPLETED`, `ERROR`, `INCOMPLETE`, 미결정 시 `null` | Run 처리 결과와 신뢰도 |
-| Quality Gate | `PASS`, `FAIL`, `NOT_EVALUATED`, 미결정 시 `null` | 현재 Run의 assertion 집계 판정 |
+| `executionOutcome` | `COMPLETED`, `ERROR`, `INCOMPLETE` 또는 평가 전 `null` | Run 처리 결과와 신뢰도 |
+| Quality Gate | `PASS`, `FAIL`, `NOT_EVALUATED` 또는 판정 전 `null` | 현재 Run의 assertion 집계 판정 |
 
 - `FAILED`를 Run status로 만들지 않는다.
 - Gate `FAIL`과 execution `ERROR`를 같은 실패로 표현하지 않는다.
@@ -258,7 +256,7 @@ timeout 값, 자동 재시도 대상, 인증·권한 오류 UX, runtime schema v
 5. 개별 결과와 Evaluator metrics를 조회한다.
 6. 종료 직전 race로 결과 API가 `TEST_RUN_NOT_FINISHED`를 반환하면 완료 결과로 간주하지 않고 상세 상태를 다시 확인한다.
 
-고정 간격, backoff, jitter, background tab 감속, 최대 지속 시간과 일시 오류 허용 횟수는 `미결정`이다.
+현재 polling 기본 간격은 3초, hidden tab 간격은 최소 10초, transient failure 한도는 5회다. 별도 backoff/jitter와 최대 전체 실행 시간은 구현되어 있지 않다.
 
 ## 8. 개별 결과 mapping
 
@@ -366,7 +364,7 @@ Regression comparison API 소비는 MVP 필수다. UI는 `Result Detail summary/
 - 결과 목록의 execution status, assertion status, evaluation outcome, severity/category filter는 OpenAPI에 선언된 query만 사용한다.
 - filter 없는 FINISHED 결과의 `page.totalElements`가 고정 `testCaseCount`와 다르면 정상 빈 결과로 단정하지 않고 계약 불일치로 진단한다.
 
-URL에 filter/page를 보존할지와 filter 변경 시 page 초기화 방식은 `미결정`이다.
+filter/page 상태는 URL에 보존하지 않는다. 이를 추가할 경우 route 및 history 동작을 별도 Issue에서 정한다.
 
 ## 12. 빈 결과, 오류와 mock
 
