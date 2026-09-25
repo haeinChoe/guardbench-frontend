@@ -66,7 +66,8 @@ Frontend 문서는 Backend OpenAPI의 API schema를 복제해 독립 계약으�
 
 | 작업 | 읽기 순서 |
 | --- | --- |
-| 화면 구현 | [`product/screen-spec.md`](product/screen-spec.md) → [`product/user-flows.md`](product/user-flows.md) → [`conventions/ui-guidelines.md`](conventions/ui-guidelines.md) → 관련 views/components 및 tests |
+| 일반 구현 | [`conventions/frontend-code-quality.md`](conventions/frontend-code-quality.md) → [`product/screen-spec.md`](product/screen-spec.md) → [`product/user-flows.md`](product/user-flows.md) → [`conventions/ui-guidelines.md`](conventions/ui-guidelines.md) → 관련 views/components 및 tests |
+| 코드 구조·리팩터링 | [`conventions/frontend-code-quality.md`](conventions/frontend-code-quality.md) → [`architecture/frontend-architecture.md`](architecture/frontend-architecture.md) → 대상 source와 tests |
 | API 연동 | [`api/README.md`](api/README.md) → [`api/openapi.yaml`](api/openapi.yaml) → [`contracts/api-integration.md`](contracts/api-integration.md) → 관련 services/types와 tests |
 | 사용자 흐름 변경 | [`product/user-flows.md`](product/user-flows.md) → [`product/screen-spec.md`](product/screen-spec.md) → route/view 구현과 tests |
 | Architecture 변경 | [`architecture/frontend-architecture.md`](architecture/frontend-architecture.md) → 관련 source 의존·상태 흐름 → 관련 tests → [`decisions/`](decisions/) |

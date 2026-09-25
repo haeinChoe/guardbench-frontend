@@ -1,4 +1,11 @@
-import type { EvaluationOutcome, TestRunResultListItemRes } from '../../services/testRunService';
+import type {
+  Action,
+  AssertionStatus,
+  EvaluationOutcome,
+  Severity,
+  TestExecutionResultStatus,
+  TestRunResultListItemRes,
+} from '../../services/testRunService';
 
 export type OutcomeFilter = 'ALL' | EvaluationOutcome;
 
@@ -18,6 +25,35 @@ export const EMPTY_RESULT_FILTERS: ResultFilters = {
   name: '', input: '', category: '', expectedAction: '', severity: '', executionStatus: '',
   assertionStatus: '', evaluationOutcome: 'ALL', sort: '',
 };
+
+const parseOption = <Option extends string>(value: string, options: readonly Option[]): Option | null => (
+  options.find((option) => option === value) ?? null
+);
+
+export const parseExpectedActionFilter = (value: string) => parseOption<Action | ''>(
+  value,
+  ['', 'ALLOW', 'BLOCK'],
+);
+export const parseSeverityFilter = (value: string) => parseOption<Severity | ''>(
+  value,
+  ['', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'],
+);
+export const parseExecutionStatusFilter = (value: string) => parseOption<TestExecutionResultStatus | ''>(
+  value,
+  ['', 'SUCCEEDED', 'FAILED', 'TIMED_OUT', 'NOT_STARTED'],
+);
+export const parseAssertionStatusFilter = (value: string) => parseOption<AssertionStatus | ''>(
+  value,
+  ['', 'PASS', 'FAIL'],
+);
+export const parseEvaluationOutcomeFilter = (value: string) => parseOption<OutcomeFilter>(
+  value,
+  ['ALL', 'FALSE_NEGATIVE', 'FALSE_POSITIVE', 'TRUE_POSITIVE', 'TRUE_NEGATIVE'],
+);
+export const parseResultSortFilter = (value: string) => parseOption<ResultFilters['sort']>(
+  value,
+  ['', 'severity,desc', 'severity,asc', 'name,asc', 'name,desc'],
+);
 
 const RESULT_NARROWING_FILTER_KEYS = [
   'name',
