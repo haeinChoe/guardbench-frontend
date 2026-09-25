@@ -41,14 +41,14 @@ Frontend 문서는 Backend OpenAPI의 API schema를 복제해 독립 계약으�
 
 | 문서 | 상태 / Owner | 역할 및 canonical source | source 대조 결과 |
 | --- | --- | --- | --- |
-| [`product/screen-spec.md`](product/screen-spec.md) | `APPROVED` / Frontend | 현재 화면, route, 사용자에게 보이는 상태 | `src/routing/`, `src/App.tsx`, `src/components/views/` 기준. 계획은 별도 `DRAFT` 절로 구분한다. |
-| [`product/user-flows.md`](product/user-flows.md) | `APPROVED` / Frontend | Suite 준비, Run 생성·진행·결과·Regression 흐름 | view, service, hook과 route 기준. 미구현 선택지는 승인 흐름에서 분리한다. |
+| [`product/screen-spec.md`](product/screen-spec.md) | `APPROVED` / Frontend | 현재 화면, route, 사용자에게 보이는 상태 | `src/routing/`, `ResultDetailView.tsx`, `ApplicationResponseEvidence.tsx`를 포함한 `src/components/views/`와 대조했다. 계획은 별도 `DRAFT` 절로 구분한다. |
+| [`product/user-flows.md`](product/user-flows.md) | `APPROVED` / Frontend | Suite 준비, Run 생성·진행·결과·Regression 흐름 | view, service, hook과 route를 대조했으며 결과 목록과 Snapshot detail API의 Application Response 흐름도 확인했다. 미구현 선택지는 승인 흐름에서 분리한다. |
 | [`api/openapi.yaml`](api/openapi.yaml) | `APPROVED` / Backend | Backend API 계약의 동기화 사본 | Backend `GuardBench/guardbench-backend`가 canonical source. 기록된 commit `1aa4941`의 원본과 사본 SHA-256이 일치함을 확인했다. `openapi:verify` script 자체는 Backend clone이 없어 실행하지 않았다. |
 | [`api/openapi.source.json`](api/openapi.source.json) | 생성 metadata / Backend source 참조 | 사본의 source repository, commit, path, SHA-256 | [`scripts/sync-openapi.mjs`](../scripts/sync-openapi.mjs)와 `openapi-contract.yml`이 기록·검증한다. |
 | [`api/README.md`](api/README.md) | `APPROVED` / Frontend | OpenAPI 사본 sync, verify, drift 확인 절차 | npm scripts, sync script, `.github/workflows/openapi-contract.yml`과 대조했다. |
-| [`contracts/api-integration.md`](contracts/api-integration.md) | `APPROVED` / Frontend | Backend 계약을 호출·mapping·표현하는 소비 계약 | `src/services/`, `src/types/`, view/hook과 대조. endpoint/schema의 owner가 아니다. |
-| [`architecture/frontend-architecture.md`](architecture/frontend-architecture.md) | `APPROVED` / Frontend | 현재 module 경계, 상태 소유권, polling·오류·테스트 경계 | `src/App.tsx`, `src/config/`, `src/routing/`, `src/services/`, `src/hooks/`, components와 대조했다. 제안은 `DRAFT`로 분리한다. |
-| [`conventions/ui-guidelines.md`](conventions/ui-guidelines.md) | `APPROVED` / Frontend | 현재 UI 상태, form, dialog, feedback, 접근성 기준 | common/view components, `useDialogFocus`, layer config와 `tests/browser/` 기준. 지원 여부를 정하지 않은 제안은 `DRAFT`로 구분한다. |
+| [`contracts/api-integration.md`](contracts/api-integration.md) | `APPROVED` / Frontend | Backend 계약을 호출·mapping·표현하는 소비 계약 | `testRunService.ts`, `ApplicationResponseEvidence.tsx`, `ResultDetailView.tsx`를 포함한 service/view와 OpenAPI의 list/detail response를 대조했다. endpoint/schema의 owner가 아니다. |
+| [`architecture/frontend-architecture.md`](architecture/frontend-architecture.md) | `APPROVED` / Frontend | 현재 module 경계, 상태 소유권, polling·오류·테스트 경계 | `src/App.tsx`, `src/config/`, `src/routing/`, `src/services/`, `useLiveRunProgress.ts`, `ApplicationResponseEvidence.tsx`와 대조했다. 제안은 `DRAFT`로 분리한다. |
+| [`conventions/ui-guidelines.md`](conventions/ui-guidelines.md) | `APPROVED` / Frontend | 현재 UI 상태, form, dialog, feedback, 접근성 기준 | common/view components, `ApplicationResponseEvidence.tsx`, `useDialogFocus`, layer config와 browser-visible behavior를 다시 대조했다. 지원 여부를 정하지 않은 제안은 `DRAFT`로 구분한다. |
 | [`testing.md`](testing.md) | `APPROVED` / Frontend | Node contract/presentation 및 Chromium component test 규칙 | `package.json`, `vitest.config.ts`, `tsconfig.browser.json`, `scripts/`, `tests/browser/`, workflow와 대조했다. |
 | [`operations/frontend-deployment.md`](operations/frontend-deployment.md) | `APPROVED` / Frontend | Frontend build, artifact, deploy 및 release workflow 동작 | `.github/workflows/`와 대조했다. AWS resource 정의는 IaC 소유이며 실제 IaC output과의 대조는 이 환경에서 수행하지 않았다. |
 | [`decisions/README.md`](decisions/README.md) | `APPROVED` / Frontend | 근거가 확인된 설계 결정과 ADR 탐색 | source/docs/Issue에서 확인 가능한 결정을 기록한다. 기록되지 않은 과거 결정을 추정하지 않는다. |

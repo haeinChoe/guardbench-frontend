@@ -59,7 +59,7 @@ Views와 data-aware modal은 API service를 직접 호출할 수 있고 polling/
 
 - 브라우저 환경 변수에는 secret, provider credential과 내부 Evaluator 설정을 포함하지 않는다.
 - `demo` mode는 현재 banner만 바꾸며 API data source를 대체하지 않는다.
-- Application 자연어 응답은 public API와 frontend state에 포함하지 않는다.
+- 개별 결과 목록은 Application Response를 포함하지 않는다. Snapshot 상세에서 사용하는 별도 detail API와 UI 상태는 아래 결과 경계를 따른다.
 - build-time 설정, 배포별 주입과 runtime 변경이 필요한 설정의 경계를 문서화한다.
 
 fixture-backed demo adapter와 fail-fast 설정 처리는 구현되어 있지 않다.
@@ -90,7 +90,8 @@ fixture-backed demo adapter와 fail-fast 설정 처리는 구현되어 있지 �
 | Suite/TestCase 편집 | Suite 및 TestCase service | `SuiteDetailModal` | create/edit draft와 선택 row |
 | Run 목록 | `GET /test-runs` | `RunsView` | 검색·상태 filter |
 | Run 상세와 polling | `GET /test-runs/{id}` | `ResultDetailView` + `useLiveRunProgress` | result selection, filters, tabs |
-| Run 결과 | `GET /test-runs/{id}/results` | `ResultDetailView` | page/filter/sort 상태 |
+| Run 결과 목록 | `GET /test-runs/{id}/results` | `ResultDetailView` | page/filter/sort 상태; list DTO에 Application Response 없음 |
+| Run 결과 상세 | `GET /test-runs/{id}/results/{snapshotId}` | `ApplicationResponseEvidence` | dialog open 시 조회한 `TestRunResultDetailRes` |
 | Evaluator metrics | `GET /test-runs/{id}/evaluator-metrics` | `ResultDetailView` | presentation 상태 |
 | Comparable Runs와 comparison | comparison endpoints | `App` + `useRegressionComparison` | 선택 comparison Run 및 화면 state |
 
@@ -131,7 +132,8 @@ query identity는 endpoint 결과를 유일하게 결정하는 입력을 포함�
 - API DTO와 화면 model을 분리한다.
 - 단일 Target을 legacy `baseline/candidate` 구조로 변환하지 않는다.
 - 응답에 없는 평가 정책 metadata를 화면 호환용으로 합성하지 않는다.
-- Application 자연어 응답, provider 원문, stack trace를 DTO에 추가하지 않는다.
+- 결과 목록 DTO `TestRunResultListItemRes`에는 Application Response가 없다. 상세 DTO `TestRunResultDetailRes`는 OpenAPI의 required nullable `applicationResponse`를 포함한다.
+- Application Response와 provider 원문, stack trace, 내부 예외 메시지를 같은 필드나 의미로 취급하지 않는다.
 - comparison summary와 case별 change/classification은 서버 DTO를 보존하고 프론트에서 재분류하지 않는다.
 - unknown public error code도 stage/message와 함께 보존한다.
 
@@ -175,9 +177,10 @@ stateDiagram-v2
     InFlight --> Finished: FINISHED
     ImmediateFetch --> TransientError: 일시 transport 오류
     InFlight --> TransientError: 일시 transport 오류
-    TransientError --> Scheduled: stale 표시 후 재시도
-    ImmediateFetch --> TerminalError: TEST_RUN_NOT_FOUND
-    InFlight --> TerminalError: TEST_RUN_NOT_FOUND
+    TransientError --> Scheduled: stale 표시 후 재시도 (< 5회)
+    TransientError --> TerminalError: transient failure 5회 도달
+    ImmediateFetch --> TerminalError: non-retryable 4xx / INVALID_RESPONSE
+    InFlight --> TerminalError: non-retryable 4xx / INVALID_RESPONSE
     Scheduled --> Cancelled: Run 변경 / unmount
     InFlight --> Cancelled: abort
     Finished --> [*]
@@ -190,7 +193,7 @@ stateDiagram-v2
 - 늦게 도착한 이전 Run 응답은 폐기한다.
 - FINISHED에서 중단하고 results와 metrics query를 활성화한다.
 - 일시 오류 후 이전 detail을 유지하면 stale로 표시한다.
-- `TEST_RUN_NOT_FOUND` 같은 terminal API 오류와 일시 transport 오류를 분리한다.
+- `INVALID_RESPONSE`와 HTTP 4xx 중 408, 429를 제외한 오류는 retry하지 않는 terminal 분류다. `TEST_RUN_NOT_FOUND`는 그 예시다. 그 밖의 transient 오류도 연속 5회가 되면 polling을 중단한다.
 - results, evaluator-metrics 또는 비교 조회에서 `TEST_RUN_NOT_FINISHED`가 발생하면 terminal 오류나 empty로 확정하지 않고 Run detail을 다시 확인한다.
 
 기본 간격은 3초, document가 hidden이면 최소 10초다. transient error는 최대 5회 재시도하고 408/429를 제외한 4xx와 `INVALID_RESPONSE`에서 자동 갱신을 중단한다. 최대 전체 대기 시간은 없다.
@@ -213,7 +216,8 @@ RunDetail
 - result filter는 저장 결과 목록만 좁히며 metrics를 바꾸지 않는다.
 - `evaluationOutcome`의 TP/TN/FP/FN 분류는 서버 결과를 보존하며 verdict가 없으면 추정하지 않는다.
 - `APPLICATION_TARGET` 또는 `EVALUATOR` failure stage는 assertion과 다른 축으로 표시한다.
-- 원문 Application response는 frontend state, modal과 export에 포함하지 않는다.
+- 결과 목록은 `TestRunResultListItemRes`를 사용하고 Application Response를 포함하지 않는다. Snapshot 상세 dialog가 열리면 `ApplicationResponseEvidence`가 결과 상세 API를 별도로 호출하고 `applicationResponse`를 component state에 보관한다. 값이 있을 때 기본은 접힌 상태이며 사용자가 reveal action을 선택하면 dialog 안에 표시한다.
+- Application Response 외의 provider 원문, stack trace와 내부 예외 메시지는 별개 데이터이며 공개 결과로 추측하거나 보충하지 않는다.
 - results 또는 evaluator-metrics가 `TEST_RUN_NOT_FINISHED`를 반환하면 detail 상태를 다시 조회하고 진행 흐름으로 복귀한다.
 
 Quality Gate의 `assertion`과 `execution` evidence는 detail DTO에서 보존하고 `value`와 `threshold`만
@@ -303,7 +307,7 @@ comparability 규칙을 프론트에서 복제하거나 같은 Suite라는 이�
 - data-aware modal은 query/mutation identity와 외부 갱신 계약을 명시한다.
 - Status component는 lifecycle, outcome, Quality Gate, assertion과 execution status의 의미를 합치지 않는다.
 - `QualityGateEvidence`는 status별 제목·tone과 서버가 확정한 metric evidence·실패 이유의 표현을 소유하고, Result Detail은 결과 집계와 상태별 안내 문구를 제공한다.
-- Snapshot 상세는 public result DTO만 사용하며 Application 원문을 요구하지 않는다.
+- Snapshot 상세는 목록 DTO의 항목에 더해 전용 detail API의 `applicationResponse`를 on-demand로 조회한다. 값은 기본적으로 숨기고 사용자가 reveal action을 선택한 경우에 표시한다.
 
 prop drilling, context와 전역 store 선택은 실제 공유 범위를 확인한 뒤 결정한다.
 
@@ -369,7 +373,7 @@ feature-based 폴더, query library와 generated API package 도입은 이 문�
 - verdict/assertion/outcome nullable 조합
 - result filter empty와 전체 empty 구분
 - current Run 변경 시 metrics/comparison state 격리
-- Application 원문이 DTO·UI·log에 포함되지 않음
+- 결과 목록 DTO에 Application Response가 없고, 상세 DTO의 nullable Application Response가 on-demand detail UI와 일치함
 
 테스트 작성·mock·실행 규칙은 [`../testing.md`](../testing.md)를 따른다. 실제 Backend E2E test와 별도 환경은 구현되어 있지 않다.
 

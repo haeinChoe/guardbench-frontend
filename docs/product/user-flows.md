@@ -190,10 +190,12 @@ stateDiagram-v2
     ImmediateFetch --> Finished: status = FINISHED
     ImmediateFetch --> RecoverableError: 일시 조회 오류
     Polling --> RecoverableError: 일시 조회 오류
-    RecoverableError --> ImmediateFetch: 사용자 또는 정책상 재시도
-    ImmediateFetch --> NotFound: TEST_RUN_NOT_FOUND
+    RecoverableError --> Polling: transient retry (< 5회)
+    RecoverableError --> TerminalError: transient failure 5회
+    ImmediateFetch --> TerminalError: non-retryable 4xx / INVALID_RESPONSE
+    Polling --> TerminalError: non-retryable 4xx / INVALID_RESPONSE
     Finished --> [*]
-    NotFound --> [*]
+    TerminalError --> [*]
 ```
 
 1. 생성 또는 Run 선택 직후 상세를 한 번 조회한다.
@@ -203,7 +205,7 @@ stateDiagram-v2
 5. 늦게 도착한 이전 응답을 현재 Run에 적용하지 않는다.
 6. FINISHED에서 Polling을 중단한다.
 
-현재 polling은 기본 3초 간격이며 hidden tab에서는 최소 10초로 늦춘다. 일시 오류는 최대 5회까지 재시도하고, 4xx terminal 오류(408, 429 제외)와 invalid response에서는 멈춘다. 사용자는 상세 화면의 재시도 action으로 polling을 다시 시작할 수 있다. 최대 전체 대기 시간은 설정하지 않았다.
+현재 polling은 기본 3초 간격이며 hidden tab에서는 최소 10초로 늦춘다. `INVALID_RESPONSE`와 408/429를 제외한 4xx는 retry하지 않고 멈춘다. 다른 transient 오류는 연속 5회까지 시도하며 다섯 번째 실패에서 멈춘다. 중단 후 사용자는 상세 화면의 재시도 action으로 polling을 다시 시작할 수 있다. 최대 전체 대기 시간은 설정하지 않았다.
 
 ## 6. 현재 Run 결과 검토
 
@@ -246,7 +248,7 @@ flowchart TD
 - `정상 차단 (TP) / 정상 허용 (TN) / 과차단 (FP) / 차단 누락 (FN)` 판정 유형
 - 대상 애플리케이션 또는 판정 처리의 실패 단계와 안전한 오류
 
-Application 자연어 응답은 현재 public API에 없으며 프론트엔드는 원문을 조회·저장·표시하지 않는다. 관리자 또는 배포 전 테스트라는 이유만으로 공개하지 않는다.
+결과 목록에는 Application Response가 포함되지 않는다. 사용자가 Snapshot 상세 dialog를 열면 전용 결과 상세 API를 호출해 `applicationResponse`를 가져온다. 값이 `null`이면 저장된 응답이 없다고 표시하고, 문자열이 있으면 기본 접힘 상태에서 사용자가 `응답 내용 보기`를 선택해 원문을 펼치거나 다시 숨길 수 있다.
 
 ### 6.3 결과 해석
 
@@ -376,7 +378,7 @@ Endpoint, method, request/response shape는 [API 연동 계약](../contracts/api
 - Regression Detail의 세부 시각적 표현과 action transition 표시 방식
 - report/export 범위
 
-Application 자연어 응답 비공개는 현재 확정된 정책이다. 위 backlog 항목은 현재 구현 계약이 아니며, 채택하려면 별도 Issue에서 범위와 요구사항을 승인한다.
+위 backlog 항목은 현재 구현 계약이 아니며, 채택하려면 별도 Issue에서 범위와 요구사항을 승인한다. Application Response의 현재 API와 UI 동작은 앞서 설명한 구현 흐름을 따른다.
 
 ## 12. 검증 근거
 

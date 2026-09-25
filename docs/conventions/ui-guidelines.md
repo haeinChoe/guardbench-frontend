@@ -18,7 +18,7 @@
 - 색상, icon 또는 위치 하나만으로 상태 의미를 전달하지 않는다.
 - lifecycle, execution outcome, Evaluator verdict, assertion, Quality Gate와 Regression을 하나의 “성공/실패”로 합치지 않는다.
 - 사용자가 입력하는 Application Target과 Backend의 내부 판정 설정을 구분한다.
-- Application 자연어 응답은 조회·저장·표시하지 않는다.
+- 상세 API가 제공하는 Application Response는 목록 DTO와 구분하고, 현재 UI의 명시적 disclosure 동작을 따른다. provider 원문과 내부 예외 메시지는 다른 데이터다.
 - OpenAPI에 없는 값, metric, error 의미와 comparison classification을 UI에서 추정하지 않는다.
 - keyboard와 screen reader 사용자가 pointer 사용자와 같은 정보·action에 접근할 수 있어야 한다.
 
@@ -190,7 +190,7 @@ filter/page는 URL에 보존되지 않는다. 공통 mobile table pattern은 구
 - 오류 후 modal을 닫지 않고 입력과 오류를 유지한다.
 - layer 순서는 공통 token을 사용하며 현재 Topbar·mobile backdrop `z-40` < Sidebar `z-50` < Dialog `z-[60]` < toast `z-[70]` 순으로 둔다.
 
-Snapshot 상세 modal은 public result DTO만 사용한다. Application 자연어 응답, provider 원문과 내부 오류를 표시하는 영역을 만들지 않는다.
+Snapshot 상세 dialog는 목록 결과 외에 `ApplicationResponseEvidence`를 표시한다. 이 component는 개별 결과 상세 API를 on-demand 호출하며 provider 원문이나 내부 예외 메시지를 Application Response로 취급하지 않는다.
 
 ## 11. Keyboard, focus와 page structure
 
@@ -289,14 +289,18 @@ skip link, route change announcement와 screen reader 지원 matrix는 #17에서
 
 Regression 전용 화면은 구현되어 있으며 비교 가능한 Run 선택과 서버가 반환한 summary 및 case-level 결과를 표시한다.
 
-## 16. Application 자연어 응답 비공개
+## 16. Application Response disclosure
 
-Application 자연어 응답은 Evaluator 내부 입력이며 public UI에 표시하지 않는다.
+현재 `ApplicationResponseEvidence`는 Snapshot 상세 dialog에서 결과 상세 API를 호출해 Application Response를 별도로 가져온다. 결과 목록에는 이 값이 포함되지 않는다.
 
-- 관리자 또는 배포 전 테스트라는 이유만으로 reveal action을 제공하지 않는다.
-- frontend state, modal, DOM, analytics, error report, log와 export에 원문을 넣지 않는다.
-- TestCaseSnapshot, execution status, verdict, assertion, outcome과 안전한 오류 정보로 결과를 검토한다.
-- 향후 제한 공개가 필요하면 별도 보안·제품 Decision과 OpenAPI 변경을 선행한다.
+- API 조회 중에는 loading 문구를 표시한다.
+- `applicationResponse: null`이면 “이 실행에는 저장된 대상 애플리케이션 응답이 없습니다.”를 표시한다.
+- 조회 실패 시 오류 문구와 다시 시도 action을 표시한다.
+- 응답이 있으면 민감정보 또는 유해한 내용이 포함될 수 있다는 안내와 함께 기본 접힘 상태로 둔다.
+- 사용자가 `응답 내용 보기`를 선택하면 원문을 표시하고, `응답 내용 숨기기`로 다시 접을 수 있다.
+- 원문은 `<pre>`에 whitespace 보존 및 줄바꿈 가능한 형태로 렌더링한다.
+
+provider 원문, stack trace와 내부 예외 메시지는 Application Response와 별개의 데이터이며 이 표시 규칙으로 공개되는 값이 아니다.
 
 ## 17. 공통 component 책임
 

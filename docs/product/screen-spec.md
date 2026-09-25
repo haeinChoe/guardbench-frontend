@@ -207,7 +207,7 @@ TestRun의 진행 단계, 처리 결과와 Quality Gate를 독립적으로 확�
 - `RegressionSummaryEntry`가 선택된 historical Run과의 악화/개선/변화 없음/비교 불가 집계를 상단에 표시하고 `회귀 상세 보기` action을 제공한다.
 - Result Detail에서는 전체 Regression case table을 렌더링하지 않는다.
 - 다른 1차 화면으로 이동한 뒤 Sidebar의 결과 상세를 다시 선택하면 현재 세션에서 마지막으로 확인한 Run으로 복귀한다.
-- Application 자연어 응답과 legacy 한 Run 내부 Baseline/Candidate diff를 표시하지 않는다.
+- Application Response는 결과 목록 payload에 없으며 Snapshot 상세 dialog 안의 전용 detail component가 별도 상세 API로 조회한다. 원문은 기본 접힘 상태이고 사용자가 표시 action을 선택할 수 있다. legacy 한 Run 내부 Baseline/Candidate diff는 표시하지 않는다.
 
 ### 8.1 Run 요약 (`Current behavior`)
 
@@ -244,11 +244,11 @@ lifecycle 완료는 Quality Gate PASS와 별개의 상태다.
 | 테스트 위험도 | CRITICAL, HIGH, MEDIUM, LOW |
 | 결과 | 정상 허용, 정상 차단, 과차단, 차단 누락 또는 판정 미완료와 판정 흐름 |
 | 처리 상태 | `SUCCEEDED`, `FAILED`, `TIMED_OUT`, `NOT_STARTED`의 사용자용 표현 |
-| 상세 | 입력, 기대 동작, 관측된 동작, 기대 일치 여부, 판정 유형과 안전한 오류 정보 dialog |
+| 상세 | 입력, 기대 동작, 관측된 동작, 기대 일치 여부, 판정 유형, 안전한 오류 정보와 Application Response 상세 조회를 포함하는 dialog |
 
 - 실행 실패를 assertion FAIL로 바꾸지 않는다.
 - verdict가 없는 항목을 TP/TN/FP/FN으로 추정하지 않는다.
-- API가 공개하지 않는 Application 자연어 응답은 조회·저장·표시하지 않는다.
+- 결과 목록에는 Application Response가 없다. Snapshot 상세 dialog에서 상세 API를 별도로 호출해 `applicationResponse`를 조회하며 nullable 응답은 저장된 응답이 없는 상태로 표시한다. 응답이 존재하면 기본 접힘과 명시적인 보기/숨기기 action으로 원문을 표시한다.
 - provider 원문, stack trace나 내부 오류를 표시하지 않는다.
 - FINISHED 전 `TEST_RUN_NOT_FINISHED`는 빈 결과가 아니라 진행 상태 재확인으로 처리한다.
 
@@ -350,7 +350,7 @@ Regression Detail은 기존 `RegressionComparisonSection`과 `regressionService`
 
 ## 10. Polling
 
-현재 `ResultDetailView`는 `useLiveRunProgress`로 Run 상세를 즉시 조회하고 기본 3초 간격으로 반복한다. 숨겨진 탭에서는 최소 10초 간격을 사용하고, `FINISHED` 또는 terminal error에서 자동 갱신을 멈춘다. transient failure는 최대 5회까지 재시도하며 Run 변경·화면 이탈 시 timer와 request를 정리한다. (`Current behavior`)
+현재 `ResultDetailView`는 `useLiveRunProgress`로 Run 상세를 즉시 조회하고 기본 3초 간격으로 반복한다. 숨겨진 탭에서는 최소 10초 간격을 사용한다. `FINISHED`, `INVALID_RESPONSE`, 408/429를 제외한 4xx 또는 transient failure 5회 도달 시 자동 갱신을 멈춘다. Run 변경·화면 이탈 시 timer와 request를 정리한다. (`Current behavior`)
 
 현재 동작과 retry 경계는 위에 기록했다. 최대 전체 대기 시간과 추가 사용자 안내는 구현되어 있지 않다. 변경 제안은 별도 Issue에서 승인한다.
 

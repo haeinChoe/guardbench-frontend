@@ -144,7 +144,7 @@ mapper는 다음 규칙을 따른다.
 - `null`을 임의의 성공·실패 enum으로 바꾸지 않는다.
 - 화면에서 필요한 파생 표시값은 원본 DTO와 계산 근거를 추적할 수 있어야 한다.
 - filter나 page가 바뀌면 새 응답의 `items`와 `page`를 함께 교체한다. 이전 items와 새 page를 섞지 않는다.
-- OpenAPI에 없는 Application 자연어 응답, provider 원문, stack trace 또는 내부 예외 메시지를 결과 DTO에서 얻을 수 있다고 가정하지 않는다.
+- OpenAPI에 없는 provider 원문, stack trace 또는 내부 예외 메시지를 결과 DTO에서 얻을 수 있다고 가정하지 않는다. Application Response는 아래 목록/상세 DTO 구분을 따른다.
 
 ### 4.4 Success response와 envelope
 
@@ -256,11 +256,11 @@ timeout, 공통 자동 재시도, 인증·권한 오류 UX, runtime schema valid
 5. 개별 결과와 Evaluator metrics를 조회한다.
 6. 종료 직전 race로 결과 API가 `TEST_RUN_NOT_FINISHED`를 반환하면 완료 결과로 간주하지 않고 상세 상태를 다시 확인한다.
 
-현재 polling 기본 간격은 3초, hidden tab 간격은 최소 10초, transient failure 한도는 5회다. 별도 backoff/jitter와 최대 전체 실행 시간은 구현되어 있지 않다.
+현재 polling 기본 간격은 3초, hidden tab 간격은 최소 10초다. `INVALID_RESPONSE` 및 408/429를 제외한 4xx는 재시도하지 않는다. 다른 transient failure는 최대 5회까지 시도하며 다섯 번째 연속 실패에서 polling을 멈춘다. 별도 backoff/jitter와 최대 전체 실행 시간은 구현되어 있지 않다.
 
 ## 8. 개별 결과 mapping
 
-`TestRunResultItemRes`는 실행 당시 TestCaseSnapshot과 Evaluator의 공개 결과다.
+OpenAPI의 `TestRunResultItemRes`(TypeScript `TestRunResultListItemRes`)는 실행 당시 TestCaseSnapshot과 Evaluator의 목록용 공개 결과다. 개별 결과 상세는 별도 `TestRunResultDetailRes`를 사용한다.
 
 | 필드 | 표현 책임 |
 | --- | --- |
@@ -274,42 +274,20 @@ timeout, 공통 자동 재시도, 인증·권한 오류 UX, runtime schema valid
 
 - `FAILED`, `TIMED_OUT`, `NOT_STARTED`를 assertion `FAIL`과 혼동하지 않는다.
 - verdict가 없는 항목을 FP/FN 통계에 포함하지 않는다.
-- API 결과에는 Application 자연어 응답이 포함되지 않는다. #28과 #29의 Application Response 표시는 OpenAPI 변경 없이 구현 가능한 목표로 간주하지 않는다.
 - provider 원문이나 내부 오류로 빈 필드를 보충하지 않는다.
 
 `error.code`의 목표 값 목록과 terminal 상태 mapping은 OpenAPI가 아직 확정하지 않았다. 프론트는 알려지지 않은 code도 안전한 message와 stage를 보존해 표시할 수 있어야 한다.
 
-### 8.1 Application 자연어 응답 공개 원칙
+### 8.1 개별 결과 상세와 Application Response
 
-현재 OpenAPI는 Application 자연어 응답을 Evaluator의 내부 입력으로만 사용하고 public 결과에는 포함하지 않는다. 따라서 프론트엔드의 기본 정책은 **원문을 조회·저장·표시하지 않는 것**이다.
+현재 동기화된 OpenAPI의 `TestRunResultDetailRes`는 required nullable `applicationResponse`를 정의한다. Target 단계에서 응답을 확보하지 못하면 `null`이며, Target 성공 후 Evaluator가 실패하거나 timeout되어도 저장한 Application Response가 유지될 수 있다. OpenAPI 목록 DTO `TestRunResultItemRes`와 TypeScript 목록 type `TestRunResultListItemRes`에는 이 필드가 없다.
 
-TestCase의 `input`, 주제, category와 expected action을 안다고 해서 실제 Application 응답의 민감도를 예측할 수는 없다. 응답에는 요청하지 않은 개인정보, 고객 데이터, 인증 정보, 내부 시스템 정보, system prompt 또는 외부 도구 결과가 포함될 수 있다. 관리자 전용 화면이나 배포 전 테스트도 다음 위험을 제거하지 않는다.
+| API | 목적 | Application Response |
+| --- | --- | --- |
+| `GET /api/v1/test-runs/{testRunId}/results` | filter/page를 적용한 결과 목록 | 포함하지 않음 |
+| `GET /api/v1/test-runs/{testRunId}/results/{testCaseSnapshotId}` | 개별 Snapshot 결과 상세 | `TestRunResultDetailRes.applicationResponse`로 제공. required property이며 `string` 또는 `null` |
 
-- 관리자 계정의 과도한 권한, 계정 탈취 또는 내부자 오용
-- 결과 DB, backup, observability pipeline과 로그로의 민감정보 복제
-- 브라우저 cache, 화면 캡처, 화면 공유와 export를 통한 2차 노출
-- 보존 기간, 삭제 요청, 감사와 규제 범위의 확대
-- 원문이 UI에 렌더링될 때 발생할 수 있는 injection과 안전하지 않은 link/content 처리
-
-결과 검토의 기본 화면은 원문 대신 다음 최소 정보로 목적을 충족한다.
-
-- TestCaseSnapshot의 name, input, expected action, severity와 category
-- Application/Evaluator 처리의 `executionStatus`
-- `evaluatorVerdict`, `assertionStatus`, `evaluationOutcome`
-- 공개 가능한 `error.stage`, `code`, `message`
-- Run 및 Application Target metadata
-
-향후 실제 디버깅에 원문이 꼭 필요하다는 근거가 생기면 일반 결과 DTO에 바로 추가하지 않고 별도 보안·제품 Decision과 OpenAPI 변경을 선행한다. 최소한 다음 통제가 함께 확정되어야 한다.
-
-- 기본 비공개와 명시적 권한이 있는 사용자만 사용하는 on-demand reveal
-- Run, tenant와 역할을 함께 검증하는 server-side authorization
-- 원문 접근에 대한 사용자·시각·Run 단위 audit log
-- secret/PII 탐지와 masking 또는 redaction 정책
-- 전송·저장 암호화, 짧은 retention과 확실한 삭제 정책
-- browser cache, analytics, error reporting, 일반 application log와 export로의 전파 차단
-- 안전한 text rendering과 길이 제한
-
-이 통제 없이 “관리자이므로” 또는 “배포 전 테스트이므로” 원문을 공개하지 않는다. 관리자 여부는 위험을 없애는 근거가 아니라, 제한 공개가 필요할 때 적용할 여러 통제 중 하나다.
+Result Detail에서 사용자가 Snapshot 결과 dialog를 열면 `ApplicationResponseEvidence`가 상세 API를 on-demand 호출한다. 응답을 component local state에 저장하고 loading, 오류/재시도, `null` 상태를 구분한다. 값이 있으면 기본적으로 접힌 채 표시 영역과 `응답 내용 보기` action을 제공하며, 사용자가 펼치면 원문을 보여주고 다시 숨길 수 있다. provider 원문, stack trace와 내부 예외 메시지는 이 Application Response 필드와 다른 데이터다.
 
 ## 9. Evaluator metrics
 
