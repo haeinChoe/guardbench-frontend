@@ -58,7 +58,7 @@ Frontend는 API 호출 방식, DTO mapping, 화면 상태 변환, loading/error/
 
 | 작업 유형 | 우선 읽기 자료 |
 | --- | --- |
-| 모든 Frontend 작업 | `README.md` → `docs/README.md` → 현재 Issue → 관련 승인 문서 → 관련 source/test |
+| 모든 Frontend 작업 | 현재 Issue → `docs/README.md` → 관련 `APPROVED` 문서 → 관련 source/test |
 | 일반 구현 | `docs/product/screen-spec.md` → `docs/product/user-flows.md` → `docs/conventions/ui-guidelines.md` → 관련 view/component와 test |
 | API 연동 | `docs/api/README.md` → `docs/api/openapi.yaml` → `docs/contracts/api-integration.md` → 관련 `src/services/`, `src/types/`, DTO mapping과 test |
 | 화면·사용자 흐름 | `docs/product/screen-spec.md` → `docs/product/user-flows.md` → `docs/conventions/ui-guidelines.md` → `src/routing/`, 관련 view/component와 test |
