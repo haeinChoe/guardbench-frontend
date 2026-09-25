@@ -72,7 +72,7 @@ View는 Hook, Service, Common component와 presentation helper를 사용할 수 
 | Views (`src/components/views/`) | `DashboardView.tsx` 요약 조회·집계·표현; `NewRunView.tsx` suite 선택, target/policy form과 Run 접수; `RunsView.tsx` Run collection 조회·filter; `SuitesView.tsx` suite collection 조회 및 modal 연결 |
 | Result / evaluation views (`src/components/views/`) | `ResultDetailView.tsx` Run progress, 결과·metrics 조회, filter·pagination 및 상세 표시; `QualityGateEvidence.tsx` Gate 근거 표현; `QualityGateMetricsChart.tsx` metric chart; `ApplicationResponseEvidence.tsx` 선택 결과 근거 조회 및 접기 |
 | Regression views (`src/components/views/`) | `RegressionComparisonSection.tsx` summary·분포·filter·비교 table 표시; `RegressionDetailView.tsx` 상세 비교 화면; `RegressionSummaryEntry.tsx` 요약 진입점 |
-| View pure helpers (`src/components/views/`) | `applicationResponsePresentation.ts` response 출처 표시; `evaluationOutcomePresentation.ts` outcome label/tone; `newRunForm.ts` form parse·request mapping; `qualityGatePresentation.ts` server metric presentation; `regressionSummary.ts` summary·distribution mapping; `resultFilterPresentation.ts` filter state·empty/count presentation; `resultInspectionPresentation.ts` 결과별 확인 안내 |
+| View pure helpers (`src/components/views/`) | `applicationResponsePresentation.ts` response 출처 표시; `evaluationOutcomePresentation.ts` outcome label/tone; `newRunForm.ts` form parse·request mapping; `qualityGatePresentation.ts` server metric presentation; `regressionSummary.ts` summary·distribution mapping; `resultFilterPresentation.ts` filter state·empty/count presentation; `resultInspectionPresentation.ts` 결과별 확인 안내; `resultPaginationPresentation.ts` 결과 pagination item 계산 |
 | Config와 contract | `config/layers.ts` portal layer class; `config/runtimeConfig.ts` runtime mode/base URL; `contracts/openapiNullability.contract.ts` compile-time nullable contract |
 | Hooks와 state helpers (`src/hooks/`) | `useDialogFocus.ts` dialog focus lifecycle; `useLiveRunProgress.ts` Run progress polling; `useRegressionComparison.ts` candidate·summary·comparison 조회와 retry; `regressionComparisonState.ts` 비교 query key·전이 규칙 |
 | Routing | `routing/routes.ts` route parse·serialize 및 Run identity |
@@ -89,7 +89,7 @@ View는 Hook, Service, Common component와 presentation helper를 사용할 수 
 - 코드베이스에 Node pure logic/contract test와 Chromium component test가 있다. 분리한 계산은 Node test로, 실제 DOM interaction·focus·접근성은 browser test로 검증한다.
 - 고위험 영역의 state 개수나 파일 길이는 단독 품질 지표가 아니다. 해당 값만 줄이려는 refactor는 하지 않는다.
 
-Issue #8의 첫 단계에서는 결과 filter의 DOM 문자열을 허용된 union 값으로 검증해 연결하는 부분을 순수 helper로 만들었다. 기존 옵션, 요청 mapping과 화면 문구는 유지한다. 추출된 helper는 `scripts/result-filter-presentation.test.mjs`에서 허용 및 거부 입력을 함께 검증한다.
+Issue #8의 첫 단계에서는 결과 filter의 DOM 문자열을 허용된 union 값으로 검증하고, 결과 pagination item 계산을 화면에서 분리해 순수 helper로 만들었다. 기존 옵션, 요청 mapping, 페이지 표시와 화면 문구는 유지한다. 추출한 filter 및 pagination helper는 Node test에서 허용·거부 입력과 페이지 경계를 검증한다.
 
 ## 6. 검증 및 변경 기준
 

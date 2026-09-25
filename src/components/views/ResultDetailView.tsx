@@ -34,6 +34,7 @@ import {
   type OutcomeFilter,
   type ResultFilters,
 } from './resultFilterPresentation';
+import { resultPageItems } from './resultPaginationPresentation';
 import { resultInspectionGuide } from './resultInspectionPresentation';
 
 interface ResultDetailViewProps {
@@ -46,25 +47,6 @@ interface ResultDetailViewProps {
 }
 
 const RESULT_PAGE_SIZE = 20;
-
-const pageItems = (currentPage: number, totalPages: number): Array<number | 'ellipsis'> => {
-  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, index) => index + 1);
-
-  const pages = new Set([1, totalPages, currentPage - 1, currentPage, currentPage + 1]);
-  if (currentPage <= 3) {
-    pages.add(2);
-    pages.add(3);
-    pages.add(4);
-  }
-  if (currentPage >= totalPages - 2) {
-    pages.add(totalPages - 3);
-    pages.add(totalPages - 2);
-    pages.add(totalPages - 1);
-  }
-
-  const sorted = [...pages].filter((page) => page >= 1 && page <= totalPages).sort((a, b) => a - b);
-  return sorted.flatMap((page, index) => index > 0 && page - sorted[index - 1] > 1 ? ['ellipsis', page] : [page]);
-};
 
 const executionLabel = (status: TestRunResultListItemRes['executionStatus']) => ({
   SUCCEEDED: '정상 처리', FAILED: '처리 실패', TIMED_OUT: '시간 초과', NOT_STARTED: '미실행',
@@ -554,7 +536,7 @@ export const ResultDetailView: React.FC<ResultDetailViewProps> = ({
           >
             이전
           </button>
-          {pageItems(visiblePageMeta.number, visiblePageMeta.totalPages).map((item, index) => item === 'ellipsis' ? (
+          {resultPageItems(visiblePageMeta.number, visiblePageMeta.totalPages).map((item, index) => item === 'ellipsis' ? (
             <span key={`ellipsis-${index}`} aria-hidden="true" className="px-1 text-[#697586]">…</span>
           ) : (
             <button
