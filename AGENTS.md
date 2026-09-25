@@ -119,10 +119,11 @@ API 계약 또는 동기화 사본을 다루기 전에 `package.json`의 실제 
 ## 9. Git / Issue / PR 작업 규칙
 
 - Issue 단위로 `agent/{issue-number}-{slug}` branch를 사용하고 `main`에 직접 push하지 않는다.
+- 새 Issue는 `.github/ISSUE_TEMPLATE/`의 Bug, Feature, Decision 또는 Engineering Task form에 맞춰 목적, 범위, Non-Goals와 검증 가능한 완료 조건을 기록한다. Issue의 에이전트 작업 범위 선택을 확인한다.
 - 기존 사용자 변경사항을 보존하고 현재 Issue와 관계없는 파일을 stage하지 않는다.
 - commit 전 `git diff --check`, `git status`, staged diff를 확인한다. 커밋은 관련 변경만 포함한다.
 - push 전 `git log --oneline origin/main..HEAD`, `git diff --stat origin/main...HEAD`, 전체 diff와 파일 범위를 확인한다.
-- PR은 현재 Issue를 연결하고 변경 내용, 검증 결과, 미실행 항목을 기록한다. 문서-only 변경으로 CI가 실행되지 않는 workflow 조건은 실패로 간주하지 않되 required check 상태는 확인한다.
+- PR은 `.github/pull_request_template.md`에 따라 현재 Issue, 변경 및 Non-Goals, 계약 영향, 검증 결과와 미실행 항목을 기록한다. 병합으로 Issue를 닫을 때는 `Closes #`, 연결만 할 때는 `Refs #`를 쓴다. 문서-only 변경으로 CI가 실행되지 않는 workflow 조건은 실패로 간주하지 않되 required check 상태는 확인한다.
 - force push, 기존 tag 변경/삭제, release 생성은 하지 않는다.
 
 ## 10. 금지 사항
