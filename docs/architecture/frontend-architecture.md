@@ -196,7 +196,7 @@ stateDiagram-v2
 - `INVALID_RESPONSE`와 HTTP 4xx 중 408, 429를 제외한 오류는 retry하지 않는 terminal 분류다. `TEST_RUN_NOT_FOUND`는 그 예시다. 그 밖의 transient 오류도 연속 5회가 되면 polling을 중단한다.
 - results, evaluator-metrics 또는 비교 조회에서 `TEST_RUN_NOT_FINISHED`가 발생하면 terminal 오류나 empty로 확정하지 않고 Run detail을 다시 확인한다.
 
-기본 간격은 3초, document가 hidden이면 최소 10초다. transient error는 최대 5회 재시도하고 408/429를 제외한 4xx와 `INVALID_RESPONSE`에서 자동 갱신을 중단한다. 최대 전체 대기 시간은 없다.
+기본 간격은 3초, document가 hidden이면 최소 10초다. `INVALID_RESPONSE`와 408/429를 제외한 4xx는 retry하지 않는다. 그 밖의 transient failure는 연속 5회 발생하면 자동 갱신을 중단한다. 최대 전체 대기 시간은 없다.
 
 ## 9. 결과와 Evaluator 분석 경계
 
