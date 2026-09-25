@@ -1,4 +1,4 @@
-# Frontend Architecture Decisions
+# 프론트엔드 설계 결정
 
 > Status: APPROVED
 > Owner: Frontend
@@ -20,7 +20,7 @@
 
 | ADR | 상태 | 결정 |
 | --- | --- | --- |
-| [0001](0001-backend-openapi-source-of-truth.md) | `APPROVED` | Backend OpenAPI가 API schema의 source of truth이며 Frontend 사본은 동기화·검증한다. |
-| [0002](0002-explicit-api-and-demo-modes.md) | `APPROVED` | API와 demo data mode를 명시적으로 구분하며 API 실패를 demo 성공으로 fallback하지 않는다. |
-| [0003](0003-server-owned-quality-gate.md) | `APPROVED` | Quality Gate 판정은 Backend가 소유하고 Frontend는 반환된 evidence를 표시한다. |
-| [0004](0004-browser-component-testing.md) | `APPROVED` | UI interaction과 layout 검증에 Vitest Browser Mode와 Playwright Chromium을 사용한다. |
+| [0001](0001-backend-openapi-source-of-truth.md) | `APPROVED` | Backend OpenAPI가 API schema의 기준이며 Frontend 사본은 동기화·검증한다. |
+| [0002](0002-explicit-api-and-demo-modes.md) | `APPROVED` | API와 demo mode를 명시적으로 구분하며 API 실패를 demo 성공으로 fallback하지 않는다. |
+| [0003](0003-server-owned-quality-gate.md) | `APPROVED` | Quality Gate 판정은 Backend가 소유하고 Frontend는 반환된 근거를 표시한다. |
+| [0004](0004-browser-component-testing.md) | `APPROVED` | UI component test는 Vitest Browser Mode와 Playwright Chromium을 사용한다. |
