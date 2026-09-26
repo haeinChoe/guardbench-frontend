@@ -2,9 +2,9 @@
 
 > Status: APPROVED
 > Owner: Frontend
-> Last reviewed: 2026-09-25
+> Last reviewed: 2026-09-26
 > Canonical source: GitHub repository (`.github/workflows/deploy.yml`); AWS resource definitions are owned by IaC
-> Scope: GitHub Issue #10
+> Scope: GitHub Issues #10, #12
 
 ## 브랜치와 런타임 환경
 
@@ -17,22 +17,27 @@
 
 현재 `.github/workflows/deploy.yml`의 실행 조건은 다음과 같다.
 
-| 이벤트 | Verification | staging 배포 |
+| 이벤트와 변경 범위 | Verification | staging 배포 |
 | --- | --- | --- |
-| `dev` 또는 `main` 대상 PR | lint, test, component test, build 실행 | 실행하지 않음 |
-| `dev` push/merge | 실행하지 않음 | 실행하지 않음 |
-| `main` push/merge | lint, test, component test, build 실행 | 선행 검증 성공 후 staging 배포 |
-| 수동 실행 | 선택 ref에서 lint, test, component test, build 실행 | 실행하지 않음 |
-| `docs/**` 또는 Markdown-only PR/push | 실행하지 않음 | 실행하지 않음 |
+| `dev` 또는 `main` 대상 코드 PR | scope detection, workflow test, lint, test, component test, build | 실행하지 않음 |
+| `dev` push의 코드 변경 | scope detection, workflow test, lint, test, component test, build | 실행하지 않음 |
+| `main` push의 배포 대상 변경 | scope detection, workflow test, lint, test, component test, build | 선행 검증 성공 후 staging 배포 |
+| `main` push의 검증 설정·테스트 변경 | scope detection, workflow test, lint, test, component test, build | 실행하지 않음 |
+| 문서-only PR/push | scope detection과 workflow test 실행, 전체 애플리케이션 검증 생략; `verify`는 성공으로 완료 | 실행하지 않음 |
+| 수동 실행 | 선택 ref에서 전체 검증 실행 | 실행하지 않음 |
 
-문서와 코드가 함께 변경되면 일반 코드 변경으로 취급한다. 수동 실행은 path filter와 관계없이 선택한 ref의 검증만 수행한다. 자동 배포는 `push` event와 `refs/heads/main`을 모두 만족할 때만 가능하다. `deploy` job은 `build`와 `component-test` 성공에 의존한다.
+문서와 검증 대상 변경이 함께 있으면 전체 검증을 실행한다. 문서 전용 변경도 workflow를 시작해 범위 감지와 workflow test를 수행한다. 전체 검증이 필요한 변경에서만 Build와 Component Test를 실행하고, `verify`가 필요한 결과를 집계해 branch required check에 제공한다. 자동 배포는 `push` event, `refs/heads/main`, 배포 대상 파일 변경과 성공한 `verify`를 모두 만족할 때만 가능하다. `docs/api/**` 또는 OpenAPI 동기화 설정 변경은 별도 `openapi-contract.yml` 검증도 실행한다.
 
 ## Job 경계
 
 - `Build`는 checkout, dependency 설치, TypeScript/Vite build와 artifact 업로드를 담당한다.
+- `Detect verification scope`는 PR base와 변경 commit 또는 push 이전·현재 commit을 비교해 전체 검증 및 배포 대상 여부를 계산한다.
+- `Workflow Tests`는 변경 범위 분류 규칙을 가볍게 검증한다.
+- `verify`는 workflow test를 항상 요구하고, 전체 검증 대상 변경에서는 Build와 Component Test 결과도 모두 성공해야 통과한다. 문서-only 변경에서는 전체 검증 job을 생략하고 workflow test가 통과하면 성공한다.
 - `Deploy to Staging`은 `main` push에서 성공한 build artifact만 내려받아 S3 sync와 CloudFront invalidation을 수행한다.
 - AWS 인증이나 배포가 실패해도 `Build` job 결과를 별도로 확인할 수 있다.
 - PR에서는 AWS credential을 사용하지 않는다.
+- `dev` 대상 PR과 `dev` push의 모든 job은 AWS 배포 자격 증명을 사용하지 않는다.
 
 ## Workflow에 설정된 AWS 대상
 
