@@ -1,18 +1,14 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertCircle, Eye, Loader2, RefreshCw, X } from 'lucide-react';
-import { ApiError } from '../../services/apiClient';
 import {
-  getTestRunEvaluatorMetrics,
-  getTestRunResults,
   type EvaluationOutcome,
   type EvaluatorMetricsRes,
   type TestRunResultAttentionType,
-  type TestRunResultFacetsRes,
   type TestRunResultListItemRes,
-  type PageMetaRes,
 } from '../../services/testRunService';
 import { useLiveRunProgress } from '../../hooks/useLiveRunProgress';
+import { useResultDetailQueries } from '../../hooks/useResultDetailQueries';
 import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { LAYER_CLASS } from '../../config/layers';
 import { RequestErrorBanner } from '../common/RequestErrorBanner';
@@ -46,8 +42,6 @@ interface ResultDetailViewProps {
   regressionSummary?: React.ReactNode;
 }
 
-const RESULT_PAGE_SIZE = 20;
-
 const executionLabel = (status: TestRunResultListItemRes['executionStatus']) => ({
   SUCCEEDED: '정상 처리', FAILED: '처리 실패', TIMED_OUT: '시간 초과', NOT_STARTED: '미실행',
 }[status]);
@@ -70,6 +64,7 @@ const ATTENTION_TYPES: Array<{ type: TestRunResultAttentionType; label: string; 
   { type: 'TIMED_OUT', label: '시간 초과', tone: 'border-[#dfe5e9] bg-[#f6f8f9] text-[#43515d]' },
   { type: 'NOT_STARTED', label: '미실행', tone: 'border-[#dfe5e9] bg-[#f6f8f9] text-[#43515d]' },
 ];
+const ALL_ATTENTION_TYPES = ATTENTION_TYPES.map(({ type }) => type);
 
 const OUTCOME_FILTERS: Array<{ value: OutcomeFilter; label: string }> = [
   { value: 'ALL', label: '전체' },
@@ -148,27 +143,10 @@ export const ResultDetailView: React.FC<ResultDetailViewProps> = ({
   regressionRefreshing = false,
   regressionSummary,
 }) => {
-  const [results, setResults] = useState<TestRunResultListItemRes[]>([]);
   const [resultPage, setResultPage] = useState(1);
   const [filters, setFilters] = useState<ResultFilters>(EMPTY_RESULT_FILTERS);
   const [attentionTypes, setAttentionTypes] = useState<TestRunResultAttentionType[]>([]);
-  const [attentionFacets, setAttentionFacets] = useState<TestRunResultFacetsRes | null>(null);
-  const loadedFacetFilterKeyRef = useRef<string | null>(null);
-  const attentionInitializedRunIdRef = useRef<string | null>(null);
-  const [pageMeta, setPageMeta] = useState<PageMetaRes | null>(null);
-  const [evaluatorMetrics, setEvaluatorMetrics] = useState<EvaluatorMetricsRes | null>(null);
-  const [loadedMetricsRunId, setLoadedMetricsRunId] = useState<string | null>(null);
   const [selected, setSelected] = useState<TestRunResultListItemRes | null>(null);
-  const [resultsLoading, setResultsLoading] = useState(false);
-  const [loadedResultsScopeKey, setLoadedResultsScopeKey] = useState<string | null>(null);
-  const [metricsLoading, setMetricsLoading] = useState(false);
-  const [notFinishedRaceRunId, setNotFinishedRaceRunId] = useState<string | null>(null);
-  const [raceRecoveryExhaustedRunId, setRaceRecoveryExhaustedRunId] = useState<string | null>(null);
-  const [resultsError, setResultsError] = useState<unknown>(null);
-  const [metricsError, setMetricsError] = useState<unknown>(null);
-  const [reloadToken, setReloadToken] = useState(0);
-  const raceRetryCountRef = useRef(0);
-  const raceRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // 같은 Run의 FINISHED 관측으로 Regression 조회를 한 번만 재개한다. 이후 callback identity가
   // 바뀌어 effect가 다시 실행돼도 재시도 예산을 반복해서 초기화하지 않는다.
   const notifiedFinishedRunIdRef = useRef<string | null>(null);
@@ -182,6 +160,32 @@ export const ResultDetailView: React.FC<ResultDetailViewProps> = ({
     refresh: refreshDetail,
   } = useLiveRunProgress({ runId: selectedRunId ?? null });
 
+  const {
+    results,
+    attentionFacets,
+    pageMeta,
+    evaluatorMetrics,
+    loadedMetricsRunId,
+    resultsLoading,
+    metricsLoading,
+    loadedResultsScopeKey,
+    resultsError,
+    metricsError,
+    notFinishedRace,
+    raceRecoveryExhausted,
+    refreshQueries,
+  } = useResultDetailQueries({
+    runId: selectedRunId,
+    isFinished: detail?.status === 'FINISHED',
+    page: resultPage,
+    filters,
+    attentionTypes,
+    allAttentionTypes: ALL_ATTENTION_TYPES,
+    setPage: setResultPage,
+    setAttentionTypes,
+    refreshRun: refreshDetail,
+  });
+
   useEffect(() => {
     if (!selectedRunId || detail?.status !== 'FINISHED' || String(detail.id) !== selectedRunId) return;
     if (notifiedFinishedRunIdRef.current === selectedRunId) return;
@@ -191,12 +195,8 @@ export const ResultDetailView: React.FC<ResultDetailViewProps> = ({
 
   const closeResultDialog = useCallback(() => setSelected(null), []);
   const resultDialogRef = useDialogFocus({ isOpen: selected !== null, onClose: closeResultDialog });
-  const notFinishedRace = notFinishedRaceRunId === selectedRunId;
-  const raceRecoveryExhausted = raceRecoveryExhaustedRunId === selectedRunId;
-  const resultFilterKey = JSON.stringify({ filters, attentionTypes });
-  const resultScopeKey = `${selectedRunId ?? ''}:${resultFilterKey}`;
   // 같은 Run과 필터 안의 페이지 이동에서는 이전 페이지를 유지해 목록 높이와 스크롤을 안정화한다.
-  const hasLoadedResults = loadedResultsScopeKey === resultScopeKey;
+  const hasLoadedResults = loadedResultsScopeKey === `${selectedRunId ?? ''}:${JSON.stringify({ filters, attentionTypes })}`;
   const visibleResults = hasLoadedResults ? results : [];
   const visiblePageMeta = hasLoadedResults ? pageMeta : null;
   const resultListPresentation = deriveResultListPresentation({
@@ -219,141 +219,10 @@ export const ResultDetailView: React.FC<ResultDetailViewProps> = ({
     setResultPage(1);
   }, []);
 
-  const recoverNotFinishedRace = useCallback(() => {
-    if (!selectedRunId) return;
-    setNotFinishedRaceRunId(selectedRunId);
-    if (raceRetryTimerRef.current) return;
-    if (raceRetryCountRef.current >= 3) {
-      setRaceRecoveryExhaustedRunId(selectedRunId);
-      return;
-    }
-    raceRetryCountRef.current += 1;
-    raceRetryTimerRef.current = setTimeout(() => {
-      raceRetryTimerRef.current = null;
-      setNotFinishedRaceRunId(null);
-      setRaceRecoveryExhaustedRunId(null);
-      refreshDetail();
-      setReloadToken((value) => value + 1);
-    }, 1000);
-  }, [refreshDetail, selectedRunId]);
-
-  useEffect(() => {
-    raceRetryCountRef.current = 0;
-    if (raceRetryTimerRef.current) clearTimeout(raceRetryTimerRef.current);
-    raceRetryTimerRef.current = null;
-    return () => {
-      if (raceRetryTimerRef.current) clearTimeout(raceRetryTimerRef.current);
-      raceRetryTimerRef.current = null;
-    };
-  }, [selectedRunId]);
-
   const refreshAll = () => {
-    raceRetryCountRef.current = 0;
-    if (raceRetryTimerRef.current) clearTimeout(raceRetryTimerRef.current);
-    raceRetryTimerRef.current = null;
-    loadedFacetFilterKeyRef.current = null;
-    setNotFinishedRaceRunId(null);
-    setRaceRecoveryExhaustedRunId(null);
-    refreshDetail();
-    setReloadToken((value) => value + 1);
+    refreshQueries();
     onRefreshRegression?.();
   };
-
-  useEffect(() => {
-    if (!selectedRunId || detail?.status !== 'FINISHED') return;
-    let active = true;
-    const loadResults = async () => {
-      setResultsLoading(true);
-      setResultsError(null);
-      const includeFacets = loadedFacetFilterKeyRef.current !== resultFilterKey ? 'attention' : undefined;
-      try {
-        const nextResults = await getTestRunResults(selectedRunId, {
-          page: resultPage,
-          size: RESULT_PAGE_SIZE,
-          ...(filters.name ? { name: filters.name } : {}),
-          ...(filters.input ? { input: filters.input } : {}),
-          ...(filters.category ? { category: filters.category } : {}),
-          ...(filters.expectedAction ? { expectedAction: filters.expectedAction } : {}),
-          ...(filters.severity ? { severity: filters.severity } : {}),
-          ...(filters.executionStatus ? { executionStatus: filters.executionStatus } : {}),
-          ...(filters.assertionStatus ? { assertionStatus: filters.assertionStatus } : {}),
-          ...(filters.evaluationOutcome === 'ALL' ? {} : { evaluationOutcome: filters.evaluationOutcome }),
-          ...(filters.sort ? { sort: [filters.sort] } : {}),
-          ...(attentionTypes.length ? { attentionType: attentionTypes } : {}),
-          ...(includeFacets ? { includeFacets } : {}),
-        });
-        if (active) {
-          // 필터 결과가 줄어 현재 페이지가 범위를 벗어나면 마지막 유효 페이지를 다시 조회한다.
-          if (nextResults.items.length === 0
-            && nextResults.page.totalElements > 0
-            && nextResults.page.totalPages > 0
-            && nextResults.page.number > nextResults.page.totalPages) {
-            setResultPage(nextResults.page.totalPages);
-            return;
-          }
-          setResults(nextResults.items);
-          setPageMeta(nextResults.page);
-          setLoadedResultsScopeKey(resultScopeKey);
-          if (nextResults.facets) {
-            setAttentionFacets(nextResults.facets);
-            loadedFacetFilterKeyRef.current = resultFilterKey;
-            if (attentionInitializedRunIdRef.current !== selectedRunId) {
-              attentionInitializedRunIdRef.current = selectedRunId;
-              if (nextResults.facets.attentionTotal > 0) {
-                setAttentionTypes(ATTENTION_TYPES.map(({ type }) => type));
-                setResultPage(1);
-              }
-            }
-          }
-        }
-      } catch (error) {
-        if (!active) return;
-        if (error instanceof ApiError && error.code === 'TEST_RUN_NOT_FINISHED') {
-          recoverNotFinishedRace();
-          setResults([]);
-          setPageMeta(null);
-          setLoadedResultsScopeKey(null);
-        } else {
-          setResultsError(error);
-        }
-      } finally {
-        if (active) setResultsLoading(false);
-      }
-    };
-    loadResults();
-    return () => { active = false; };
-  }, [
-    selectedRunId, reloadToken, detail?.status, resultPage, filters, attentionTypes,
-    resultFilterKey,
-    recoverNotFinishedRace, resultScopeKey,
-  ]);
-
-  useEffect(() => {
-    if (!selectedRunId || detail?.status !== 'FINISHED') return;
-    let active = true;
-    const loadMetrics = async () => {
-      setMetricsLoading(true);
-      setMetricsError(null);
-      try {
-        const nextMetrics = await getTestRunEvaluatorMetrics(selectedRunId);
-        if (active) {
-          setEvaluatorMetrics(nextMetrics);
-          setLoadedMetricsRunId(selectedRunId);
-        }
-      } catch (error) {
-        if (!active) return;
-        if (error instanceof ApiError && error.code === 'TEST_RUN_NOT_FINISHED') {
-          recoverNotFinishedRace();
-        } else {
-          setMetricsError(error);
-        }
-      } finally {
-        if (active) setMetricsLoading(false);
-      }
-    };
-    loadMetrics();
-    return () => { active = false; };
-  }, [selectedRunId, reloadToken, detail?.status, recoverNotFinishedRace]);
 
   const notFinished = detail?.status !== 'FINISHED' || notFinishedRace;
   const refreshInProgress = detailLoading

@@ -1,4 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest';
+import { useState } from 'react';
 import { render } from 'vitest-browser-react';
 import { ResultDetailView } from '../../src/components/views/ResultDetailView';
 import type { TestRunResultListItemRes } from '../../src/services/testRunService';
@@ -146,4 +147,69 @@ test('result pagination uses 20-item pages, supports page buttons and recovers a
     ['4', '20'],
     ['3', '20'],
   ]);
+});
+
+test('late result responses from a previously selected Run do not replace the current Run', async () => {
+  const previousResults = deferred<Response>();
+  const { requests } = installApiStub((request) => {
+    const runId = request.url.pathname.match(/test-runs\/(\d+)/)?.[1];
+    if (!runId) throw new Error(`Unexpected API request: ${request.method} ${request.url.pathname}`);
+    if (request.url.pathname.endsWith(`/test-runs/${runId}`)) {
+      return apiSuccess({
+        id: Number(runId),
+        testSuiteId: 7,
+        status: 'FINISHED',
+        testCaseCount: 1,
+        progress: { processedTestCaseCount: 1, percent: 100 },
+        target: { type: 'HTTP_ENDPOINT', identifier: 'https://example.com', revision: null, model: 'test-model' },
+        executionOutcome: 'COMPLETED',
+        qualityGate: null,
+        createdAt: '2026-09-06T00:00:00Z',
+        startedAt: '2026-09-06T00:00:01Z',
+        completedAt: '2026-09-06T00:01:00Z',
+        updatedAt: '2026-09-06T00:01:00Z',
+      });
+    }
+    if (request.url.pathname.endsWith(`/test-runs/${runId}/evaluator-metrics`)) {
+      return apiSuccess({
+        truePositive: 0,
+        trueNegative: 0,
+        falsePositive: 0,
+        falseNegative: 0,
+        falsePositiveRate: null,
+        falseNegativeRate: null,
+      });
+    }
+    if (request.url.pathname.endsWith(`/test-runs/${runId}/results`)) {
+      if (runId === '901') return previousResults.promise;
+      return apiSuccess({ ...pageResponse(1, 1, [resultItem(902)]), facets: {
+        allResults: 1,
+        attentionTotal: 0,
+        attentionTypes: { FALSE_NEGATIVE: 0, FALSE_POSITIVE: 0, EXECUTION_FAILED: 0, TIMED_OUT: 0, NOT_STARTED: 0 },
+      } });
+    }
+    throw new Error(`Unexpected API request: ${request.method} ${request.url.pathname}`);
+  });
+
+  const Harness = () => {
+    const [runId, setRunId] = useState('901');
+    return <>
+      <button type="button" onClick={() => setRunId('902')}>다른 Run 선택</button>
+      <ResultDetailView selectedRunId={runId} onGoNewRun={vi.fn()} />
+    </>;
+  };
+
+  const screen = await render(<Harness />);
+  await expect.poll(() => requests.filter(({ url }) => url.pathname.endsWith('/test-runs/901/results')).length).toBe(1);
+  await screen.getByRole('button', { name: '다른 Run 선택' }).click();
+  await expect.element(screen.getByText('테스트 케이스 902', { exact: true }).first()).toBeInTheDocument();
+
+  previousResults.resolve(apiSuccess({ ...pageResponse(1, 1, [resultItem(901)]), facets: {
+    allResults: 1,
+    attentionTotal: 0,
+    attentionTypes: { FALSE_NEGATIVE: 0, FALSE_POSITIVE: 0, EXECUTION_FAILED: 0, TIMED_OUT: 0, NOT_STARTED: 0 },
+  } }));
+
+  await expect.element(screen.getByText('테스트 케이스 902', { exact: true }).first()).toBeInTheDocument();
+  await expect.element(screen.getByText('테스트 케이스 901', { exact: true }).first()).not.toBeInTheDocument();
 });
