@@ -10,40 +10,28 @@ import {
   type TestRunComparisonSummaryRes,
 } from '../services/regressionService';
 import {
+  acceptCandidatePage,
+  acceptComparison,
+  acceptSummary,
+  changeCandidatePage,
   comparisonKey,
-  preserveSelectedCandidate,
+  failCandidatePage,
+  failComparison,
+  failSummary,
+  initialRegressionStore,
+  markCandidatesNotFinished,
+  refreshCandidates as refreshCandidatesStore,
+  refreshComparison as refreshComparisonStore,
+  refreshSummary as refreshSummaryStore,
+  selectComparison as selectComparisonStore,
   shouldLoadComparison,
   shouldLoadSummary,
   shouldRefreshRegressionCandidates,
+  type RegressionStore,
 } from './regressionComparisonState';
 
 const AUTO_RETRY_LIMIT = 5;
 const AUTO_RETRY_DELAY_MS = 2000;
-
-interface RegressionStore {
-  runId: string;
-  candidates: ComparableTestRunListItemRes[];
-  candidatePage: number;
-  candidatePageMeta: ComparableTestRunListRes['page'] | null;
-  selectedComparisonId: string;
-  selectedAutomatically: boolean;
-  candidatesLoading: boolean;
-  candidatesError: unknown;
-  notFinished: boolean;
-  autoRetryCount: number;
-  hasLoadedCandidates: boolean;
-  candidateReloadToken: number;
-  summary: TestRunComparisonSummaryRes | null;
-  summaryLoadedKey: string;
-  summaryError: unknown;
-  summaryErrorKey: string;
-  summaryReloadToken: number;
-  comparison: TestRunComparisonRes | null;
-  comparisonLoadedKey: string;
-  comparisonError: unknown;
-  comparisonErrorKey: string;
-  comparisonReloadToken: number;
-}
 
 export interface RegressionSummaryState {
   runId: string;
@@ -84,42 +72,17 @@ export interface RegressionComparisonState {
   detail: RegressionDetailState;
 }
 
-const initialStore = (runId: string): RegressionStore => ({
-  runId,
-  candidates: [],
-  candidatePage: 1,
-  candidatePageMeta: null,
-  selectedComparisonId: '',
-  selectedAutomatically: false,
-  candidatesLoading: Boolean(runId),
-  candidatesError: null,
-  notFinished: false,
-  autoRetryCount: 0,
-  hasLoadedCandidates: false,
-  candidateReloadToken: 0,
-  summary: null,
-  summaryLoadedKey: '',
-  summaryError: null,
-  summaryErrorKey: '',
-  summaryReloadToken: 0,
-  comparison: null,
-  comparisonLoadedKey: '',
-  comparisonError: null,
-  comparisonErrorKey: '',
-  comparisonReloadToken: 0,
-});
-
 export function useRegressionComparison(runId: string, loadDetails: boolean): RegressionComparisonState {
-  const [store, setStore] = useState<RegressionStore>(() => initialStore(runId));
+  const [store, setStore] = useState<RegressionStore>(() => initialRegressionStore(runId));
   const retryRunIdRef = useRef(runId);
   const autoRetryCountRef = useRef(0);
 
   // 새 Run을 commit하기 전에 저장소를 교체해 이전 Run의 요약이 한 프레임 노출되지 않게 한다.
   if (store.runId !== runId) {
-    setStore(initialStore(runId));
+    setStore(initialRegressionStore(runId));
   }
 
-  const current = store.runId === runId ? store : initialStore(runId);
+  const current = store.runId === runId ? store : initialRegressionStore(runId);
   const selectedKey = comparisonKey(runId, current.selectedComparisonId);
 
   useEffect(() => {
@@ -130,56 +93,23 @@ export function useRegressionComparison(runId: string, loadDetails: boolean): Re
     }
     let active = true;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    const requestPage = current.candidatePage;
+    const requestReloadToken = current.candidateReloadToken;
 
-    getComparableTestRuns(runId, { page: current.candidatePage, size: 20 })
+    getComparableTestRuns(runId, { page: requestPage, size: 20 })
       .then((response) => {
         if (!active) return;
-        setStore((previous) => {
-          if (previous.runId !== runId) return previous;
-          const candidateIds = response.items.map((candidate) => String(candidate.id));
-          const nextSelection = preserveSelectedCandidate(previous.selectedComparisonId, candidateIds);
-          const selectionChanged = nextSelection !== previous.selectedComparisonId;
-          autoRetryCountRef.current = 0;
-          return {
-            ...previous,
-            candidates: response.items,
-            candidatePageMeta: response.page,
-            selectedComparisonId: nextSelection,
-            selectedAutomatically: selectionChanged ? Boolean(nextSelection) : previous.selectedAutomatically,
-            candidatesLoading: false,
-            candidatesError: null,
-            notFinished: false,
-            autoRetryCount: 0,
-            hasLoadedCandidates: true,
-            ...(selectionChanged ? {
-              summary: null,
-              summaryLoadedKey: '',
-              summaryError: null,
-              summaryErrorKey: '',
-              comparison: null,
-              comparisonLoadedKey: '',
-              comparisonError: null,
-              comparisonErrorKey: '',
-            } : {}),
-          };
-        });
+        autoRetryCountRef.current = 0;
+        setStore((previous) => acceptCandidatePage(previous, runId, requestPage, requestReloadToken, response));
       })
       .catch((error) => {
         if (!active) return;
         if (error instanceof ApiError && error.code === 'TEST_RUN_NOT_FINISHED') {
           const nextRetryCount = autoRetryCountRef.current + 1;
           autoRetryCountRef.current = nextRetryCount;
-          setStore((previous) => {
-            if (previous.runId !== runId) return previous;
-            return {
-              ...previous,
-              candidatesLoading: false,
-              candidatesError: null,
-              notFinished: true,
-              autoRetryCount: nextRetryCount,
-              hasLoadedCandidates: true,
-            };
-          });
+          setStore((previous) => markCandidatesNotFinished(
+            previous, runId, requestPage, requestReloadToken, nextRetryCount,
+          ));
           if (nextRetryCount < AUTO_RETRY_LIMIT) {
             retryTimer = setTimeout(() => {
               if (!active) return;
@@ -192,11 +122,7 @@ export function useRegressionComparison(runId: string, loadDetails: boolean): Re
           }
           return;
         }
-        setStore((previous) => previous.runId === runId ? {
-          ...previous,
-          candidatesLoading: false,
-          candidatesError: error,
-        } : previous);
+        setStore((previous) => failCandidatePage(previous, runId, requestPage, requestReloadToken, error));
       });
 
     return () => {
@@ -216,18 +142,15 @@ export function useRegressionComparison(runId: string, loadDetails: boolean): Re
     if (!summaryNeedsLoad) return;
     let active = true;
     const requestKey = selectedKey;
+    const requestReloadToken = current.summaryReloadToken;
     getTestRunComparisonSummary(runId, current.selectedComparisonId)
       .then((summary) => {
         if (!active) return;
-        setStore((previous) => previous.runId === runId && comparisonKey(runId, previous.selectedComparisonId) === requestKey
-          ? { ...previous, summary, summaryLoadedKey: requestKey, summaryError: null, summaryErrorKey: '' }
-          : previous);
+        setStore((previous) => acceptSummary(previous, runId, requestKey, requestReloadToken, summary));
       })
       .catch((error) => {
         if (!active) return;
-        setStore((previous) => previous.runId === runId && comparisonKey(runId, previous.selectedComparisonId) === requestKey
-          ? { ...previous, summary: null, summaryLoadedKey: '', summaryError: error, summaryErrorKey: requestKey }
-          : previous);
+        setStore((previous) => failSummary(previous, runId, requestKey, requestReloadToken, error));
       });
     return () => { active = false; };
   }, [loadDetails, runId, current.selectedComparisonId, current.summaryReloadToken, selectedKey, summaryNeedsLoad]);
@@ -238,18 +161,15 @@ export function useRegressionComparison(runId: string, loadDetails: boolean): Re
     if (!comparisonNeedsLoad) return;
     let active = true;
     const requestKey = selectedKey;
+    const requestReloadToken = current.comparisonReloadToken;
     getTestRunComparison(runId, current.selectedComparisonId)
       .then((comparison) => {
         if (!active) return;
-        setStore((previous) => previous.runId === runId && comparisonKey(runId, previous.selectedComparisonId) === requestKey
-          ? { ...previous, comparison, comparisonLoadedKey: requestKey, comparisonError: null, comparisonErrorKey: '' }
-          : previous);
+        setStore((previous) => acceptComparison(previous, runId, requestKey, requestReloadToken, comparison));
       })
       .catch((error) => {
         if (!active) return;
-        setStore((previous) => previous.runId === runId && comparisonKey(runId, previous.selectedComparisonId) === requestKey
-          ? { ...previous, comparison: null, comparisonLoadedKey: '', comparisonError: error, comparisonErrorKey: requestKey }
-          : previous);
+        setStore((previous) => failComparison(previous, runId, requestKey, requestReloadToken, error));
       });
     return () => { active = false; };
   }, [loadDetails, runId, current.selectedComparisonId, current.comparisonReloadToken, selectedKey, comparisonNeedsLoad]);
@@ -260,31 +180,10 @@ export function useRegressionComparison(runId: string, loadDetails: boolean): Re
   );
   const refreshCandidates = () => {
     autoRetryCountRef.current = 0;
-    setStore((previous) => previous.runId === runId ? {
-      ...previous,
-      candidatesLoading: Boolean(runId),
-      candidatesError: null,
-      notFinished: false,
-      autoRetryCount: 0,
-      candidateReloadToken: previous.candidateReloadToken + 1,
-    } : previous);
+    setStore((previous) => refreshCandidatesStore(previous, runId));
   };
-  const refreshSummary = () => setStore((previous) => previous.runId === runId ? {
-    ...previous,
-    summary: null,
-    summaryLoadedKey: '',
-    summaryError: null,
-    summaryErrorKey: '',
-    summaryReloadToken: previous.summaryReloadToken + 1,
-  } : previous);
-  const refreshComparison = () => setStore((previous) => previous.runId === runId ? {
-    ...previous,
-    comparison: null,
-    comparisonLoadedKey: '',
-    comparisonError: null,
-    comparisonErrorKey: '',
-    comparisonReloadToken: previous.comparisonReloadToken + 1,
-  } : previous);
+  const refreshSummary = () => setStore((previous) => refreshSummaryStore(previous, runId));
+  const refreshComparison = () => setStore((previous) => refreshComparisonStore(previous, runId));
 
   const candidatesLoading = current.candidatesLoading;
   const summaryError = current.candidatesError
@@ -324,25 +223,8 @@ export function useRegressionComparison(runId: string, loadDetails: boolean): Re
       notFinished: current.notFinished,
       autoRetryExhausted: current.notFinished && current.autoRetryCount >= AUTO_RETRY_LIMIT,
       hasLoadedCandidates: current.hasLoadedCandidates,
-      setCandidatePage: (page) => setStore((previous) => {
-        if (previous.runId !== runId) return previous;
-        const nextPage = typeof page === 'function' ? page(previous.candidatePage) : page;
-        return { ...previous, candidatePage: nextPage, candidatesLoading: true, candidatesError: null,
-          candidateReloadToken: previous.candidateReloadToken + 1 };
-      }),
-      selectComparison: (nextRunId) => setStore((previous) => previous.runId === runId ? {
-        ...previous,
-        selectedComparisonId: nextRunId,
-        selectedAutomatically: false,
-        summary: null,
-        summaryLoadedKey: '',
-        summaryError: null,
-        summaryErrorKey: '',
-        comparison: null,
-        comparisonLoadedKey: '',
-        comparisonError: null,
-        comparisonErrorKey: '',
-      } : previous),
+      setCandidatePage: (page) => setStore((previous) => changeCandidatePage(previous, runId, page)),
+      selectComparison: (nextRunId) => setStore((previous) => selectComparisonStore(previous, runId, nextRunId)),
       refreshCandidates,
       refreshComparison,
     },
