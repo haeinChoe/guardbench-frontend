@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { render } from 'vitest-browser-react';
 import { ResultDetailView } from '../../src/components/views/ResultDetailView';
 import type { TestRunResultListItemRes } from '../../src/services/testRunService';
-import { apiSuccess, deferred, installApiStub } from './support/apiStub';
+import { apiFailure, apiSuccess, deferred, installApiStub } from './support/apiStub';
 
 const resultItem = (id: number): TestRunResultListItemRes => ({
   testCaseSnapshotId: id,
@@ -212,4 +212,109 @@ test('late result responses from a previously selected Run do not replace the cu
 
   await expect.element(screen.getByText('테스트 케이스 902', { exact: true }).first()).toBeInTheDocument();
   await expect.element(screen.getByText('테스트 케이스 901', { exact: true }).first()).not.toBeInTheDocument();
+});
+
+test('TEST_RUN_NOT_FINISHED schedules a detail refresh and retries result queries', async () => {
+  let resultCalls = 0;
+  const { requests } = installApiStub((request) => {
+    if (request.url.pathname === '/api/v1/test-runs/903') {
+      return apiSuccess({
+        id: 903,
+        testSuiteId: 7,
+        status: 'FINISHED',
+        testCaseCount: 1,
+        progress: { processedTestCaseCount: 1, percent: 100 },
+        target: { type: 'HTTP_ENDPOINT', identifier: 'https://example.com', revision: null, model: 'test-model' },
+        executionOutcome: 'COMPLETED',
+        qualityGate: null,
+        createdAt: '2026-09-06T00:00:00Z',
+        startedAt: '2026-09-06T00:00:01Z',
+        completedAt: '2026-09-06T00:01:00Z',
+        updatedAt: '2026-09-06T00:01:00Z',
+      });
+    }
+    if (request.url.pathname === '/api/v1/test-runs/903/evaluator-metrics') {
+      return apiSuccess({
+        truePositive: 0,
+        trueNegative: 0,
+        falsePositive: 0,
+        falseNegative: 0,
+        falsePositiveRate: null,
+        falseNegativeRate: null,
+      });
+    }
+    if (request.url.pathname === '/api/v1/test-runs/903/results') {
+      resultCalls += 1;
+      if (resultCalls === 1) return apiFailure(409, 'TEST_RUN_NOT_FINISHED', 'Results are not ready');
+      return apiSuccess({ ...pageResponse(1, 1, [resultItem(903)]), facets: {
+        allResults: 1,
+        attentionTotal: 0,
+        attentionTypes: { FALSE_NEGATIVE: 0, FALSE_POSITIVE: 0, EXECUTION_FAILED: 0, TIMED_OUT: 0, NOT_STARTED: 0 },
+      } });
+    }
+    throw new Error(`Unexpected API request: ${request.method} ${request.url.pathname}`);
+  });
+
+  const screen = await render(<ResultDetailView selectedRunId="903" onGoNewRun={vi.fn()} />);
+  await expect.element(screen.getByText(/실행은 종료됐지만 결과가 아직 준비되지 않았습니다/)).toBeVisible();
+  await expect.poll(
+    () => requests.filter(({ url }) => url.pathname === '/api/v1/test-runs/903/results').length,
+    { timeout: 5000 },
+  ).toBe(2);
+  await expect.poll(
+    () => requests.filter(({ url }) => url.pathname === '/api/v1/test-runs/903').length,
+    { timeout: 5000 },
+  ).toBe(2);
+  await expect.element(screen.getByText('테스트 케이스 903', { exact: true }).first()).toBeInTheDocument();
+});
+
+test('unmounting during result race recovery clears its retry timer', async () => {
+  const { requests } = installApiStub((request) => {
+    if (request.url.pathname === '/api/v1/test-runs/904') {
+      return apiSuccess({
+        id: 904,
+        testSuiteId: 7,
+        status: 'FINISHED',
+        testCaseCount: 1,
+        progress: { processedTestCaseCount: 1, percent: 100 },
+        target: { type: 'HTTP_ENDPOINT', identifier: 'https://example.com', revision: null, model: 'test-model' },
+        executionOutcome: 'COMPLETED',
+        qualityGate: null,
+        createdAt: '2026-09-06T00:00:00Z',
+        startedAt: '2026-09-06T00:00:01Z',
+        completedAt: '2026-09-06T00:01:00Z',
+        updatedAt: '2026-09-06T00:01:00Z',
+      });
+    }
+    if (request.url.pathname === '/api/v1/test-runs/904/evaluator-metrics') {
+      return apiSuccess({
+        truePositive: 0,
+        trueNegative: 0,
+        falsePositive: 0,
+        falseNegative: 0,
+        falsePositiveRate: null,
+        falseNegativeRate: null,
+      });
+    }
+    if (request.url.pathname === '/api/v1/test-runs/904/results') {
+      return apiFailure(409, 'TEST_RUN_NOT_FINISHED', 'Results are not ready');
+    }
+    throw new Error(`Unexpected API request: ${request.method} ${request.url.pathname}`);
+  });
+
+  const Harness = () => {
+    const [mounted, setMounted] = useState(true);
+    return <>
+      <button type="button" onClick={() => setMounted(false)}>상세 닫기</button>
+      {mounted && <ResultDetailView selectedRunId="904" onGoNewRun={vi.fn()} />}
+    </>;
+  };
+
+  const screen = await render(<Harness />);
+  await expect.element(screen.getByText(/실행은 종료됐지만 결과가 아직 준비되지 않았습니다/)).toBeVisible();
+  await screen.getByRole('button', { name: '상세 닫기' }).click();
+  await new Promise((resolve) => setTimeout(resolve, 1100));
+
+  expect(requests.filter(({ url }) => url.pathname === '/api/v1/test-runs/904/results')).toHaveLength(1);
+  expect(requests.filter(({ url }) => url.pathname === '/api/v1/test-runs/904')).toHaveLength(1);
 });
