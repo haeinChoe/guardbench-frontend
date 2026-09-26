@@ -1,4 +1,4 @@
-name: Frontend CI and Dev Deploy
+name: Frontend CI and Staging Deploy
 
 on:
   pull_request:
@@ -79,8 +79,8 @@ jobs:
         run: npm run test:component
 
   deploy:
-    name: Deploy to Dev
-    if: github.event_name != 'pull_request'
+    name: Deploy to Staging
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [build, component-test]
     runs-on: ubuntu-latest
     permissions:
