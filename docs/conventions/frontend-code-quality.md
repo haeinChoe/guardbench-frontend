@@ -4,7 +4,7 @@
 > Owner: Frontend
 > Last reviewed: 2026-09-26
 > Scope: GitHub Issue #8
-> Inventory baseline: `70cd58c` (Issue #7 merge candidate)
+> Inventory baseline: `15fad2d` (`main`, PR #7 merged)
 
 이 문서는 현재 source를 검토해 정한 Frontend의 책임 경계, 의존 규칙, naming 기준과 후속 리팩터링 대상을 기록한다. API 계약은 Backend OpenAPI가 소유한다. 이 규칙은 화면 동작이나 API 계약을 변경하지 않으며, 대형 파일을 기계적으로 나누라는 요구도 아니다.
 
