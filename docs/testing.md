@@ -2,7 +2,7 @@
 
 > Status: APPROVED
 > Owner: Frontend
-> Last reviewed: 2026-09-25
+> Last reviewed: 2026-09-26
 > Canonical source: GitHub repository (`package.json`, test configuration and tests)
 > Scope: GitHub Issues #111, #113
 
@@ -49,7 +49,7 @@ npm run test:component
 npm run test:component:watch
 ```
 
-GitHub Actions의 `Component Test (Chromium)` job은 `npm ci`, Chromium 설치, component test 순서로 실행된다. dev 배포는 기존 build와 component test가 모두 성공해야 진행한다.
+GitHub Actions의 `Component Test (Chromium)` job은 검증 대상 변경이 있을 때 `npm ci`, Chromium 설치, component test 순서로 실행된다. `Workflow Tests`는 CI 변경 범위 분류 규칙을 빠르게 검증하고, `verify`는 branch required check용으로 workflow test와 해당 변경 범위에 필요한 Build·Component Test 결과를 집계한다. 문서-only 변경에서는 전체 애플리케이션 검증을 생략하고 workflow test와 `verify`만 완료한다. staging 배포는 `main` push에서 배포 대상 변경이 있고 `verify`가 성공한 경우에만 실행된다.
 
 ## 4. 작성 규칙
 
