@@ -141,6 +141,12 @@ test('Result Detail keeps an unfinished Regression summary neutral after interna
 
 const stateHelpers = await import(compile('../src/hooks/regressionComparisonState.ts'));
 
+const regressionStore = (runId = '901') => stateHelpers.initialRegressionStore(runId);
+const candidateResponse = (ids) => ({
+  items: ids.map((id) => ({ id, testSuiteId: 1, target: { type: 'HTTP_ENDPOINT', identifier: `https://example.test/${id}`, revision: null, model: `model-${id}` }, completedAt: '2026-09-10T00:00:00Z' })),
+  page: { number: 1, size: 20, totalElements: ids.length, totalPages: 1, hasPrevious: false, hasNext: false },
+});
+
 test('a loaded detail comparison is reused after a Result Detail round trip', () => {
   const key = stateHelpers.comparisonKey('901', '800');
   assert.equal(stateHelpers.shouldLoadComparison(key, '', ''), true);
@@ -170,4 +176,51 @@ test('a finished Run refreshes only its waiting Regression candidate lookup', ()
   assert.equal(stateHelpers.shouldRefreshRegressionAfterRunFinished('901', '901', true), true);
   assert.equal(stateHelpers.shouldRefreshRegressionAfterRunFinished('901', '901', false), false);
   assert.equal(stateHelpers.shouldRefreshRegressionAfterRunFinished('901', '902', true), false);
+});
+
+test('candidate page lifecycle rejects a late page response and preserves an available selection', () => {
+  const loaded = stateHelpers.acceptCandidatePage(
+    regressionStore(), '901', 1, 0, candidateResponse([800, 802]),
+  );
+  const selected = stateHelpers.selectComparison(loaded, '901', '802');
+  const refreshed = stateHelpers.refreshCandidates(selected, '901');
+
+  assert.equal(refreshed.selectedComparisonId, '802');
+  assert.equal(stateHelpers.acceptCandidatePage(refreshed, '901', 1, 0, candidateResponse([700])), refreshed);
+
+  const pageChanged = stateHelpers.changeCandidatePage(refreshed, '901', 2);
+  assert.equal(pageChanged.candidatePage, 2);
+  assert.equal(pageChanged.candidateReloadToken, 2);
+  assert.equal(stateHelpers.acceptCandidatePage(pageChanged, '901', 1, 1, candidateResponse([700])), pageChanged);
+});
+
+test('candidate selection and Run identity invalidate stale comparison responses', () => {
+  const loaded = stateHelpers.acceptCandidatePage(regressionStore(), '901', 1, 0, candidateResponse([800, 802]));
+  const selected = stateHelpers.selectComparison(loaded, '901', '800');
+  const key800 = stateHelpers.comparisonKey('901', '800');
+  const changed = stateHelpers.selectComparison(selected, '901', '802');
+  const comparison = { currentRunId: 901, comparisonRunId: 800, totalCases: 0, changedCount: 0, unchangedCount: 0, improvedCount: 0, regressedCount: 0, notComparableCount: 0, items: [] };
+
+  assert.equal(stateHelpers.acceptComparison(changed, '901', key800, 0, comparison), changed);
+  assert.equal(stateHelpers.failComparison(changed, '901', key800, 0, new Error('TEST_RUNS_NOT_COMPARABLE')), changed);
+
+  const otherRun = regressionStore('902');
+  assert.equal(stateHelpers.acceptComparison(otherRun, '901', key800, 0, comparison), otherRun);
+});
+
+test('TEST_RUNS_NOT_COMPARABLE remains scoped to the selected pair and clears only its result', () => {
+  const loaded = stateHelpers.acceptCandidatePage(regressionStore(), '901', 1, 0, candidateResponse([800]));
+  const selected = stateHelpers.selectComparison(loaded, '901', '800');
+  const failed = stateHelpers.failComparison(
+    selected,
+    '901',
+    stateHelpers.comparisonKey('901', '800'),
+    0,
+    { code: 'TEST_RUNS_NOT_COMPARABLE' },
+  );
+
+  assert.equal(failed.comparison, null);
+  assert.equal(failed.comparisonErrorKey, '901:800');
+  assert.equal(failed.selectedComparisonId, '800');
+  assert.deepEqual(failed.candidates.map(({ id }) => id), [800]);
 });
