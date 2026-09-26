@@ -8,6 +8,13 @@ export type CaseValidation = {
   message: string;
 };
 
+export const testCaseValidationFieldFromApiField = (field: string): CaseValidationField => {
+  if (field.endsWith('name')) return 'name';
+  if (field.endsWith('input')) return 'input';
+  if (field.endsWith('category')) return 'category';
+  return 'request';
+};
+
 export type EditableTestCase = CreateTestCasePayload;
 
 export type TestCaseEditState = {

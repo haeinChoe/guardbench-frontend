@@ -3,23 +3,23 @@ import { createPortal } from 'react-dom';
 import type { Severity, TestCase, TestSuite } from '../../types';
 import { X, Plus, Trash2, Edit2, AlertCircle, Loader2, FileUp } from 'lucide-react';
 import {
-  getTestCases,
   createTestCase,
   updateTestCase,
   deleteTestCase,
-  type TestCaseListApiResponse,
 } from '../../services/testCaseService';
 import { deleteTestSuite } from '../../services/testSuiteService';
 import { ApiError, presentApiError } from '../../services/apiClient';
 import { ActionCode } from './ActionValue';
 import { RequestErrorBanner } from './RequestErrorBanner';
 import { useDialogFocus } from '../../hooks/useDialogFocus';
+import { useSuiteTestCases } from '../../hooks/useSuiteTestCases';
 import { LAYER_CLASS } from '../../config/layers';
 import { BulkTestCaseCreatePanel } from './BulkTestCaseCreatePanel';
 import {
   EMPTY_TEST_CASE_EDIT,
   beginTestCaseEdit,
   canStartTestCaseEditSave,
+  testCaseValidationFieldFromApiField,
   changeTestCaseEdit,
   failTestCaseEditSave,
   isTestCaseEditDirty,
@@ -29,27 +29,7 @@ import {
   type CaseValidation,
   type CaseValidationField,
 } from './testCaseEditState';
-
-const TEST_CASE_PAGE_SIZE = 20;
-
-const pageItems = (currentPage: number, totalPages: number): Array<number | 'ellipsis'> => {
-  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, index) => index + 1);
-
-  const pages = new Set([1, totalPages, currentPage - 1, currentPage, currentPage + 1]);
-  if (currentPage <= 3) {
-    pages.add(2);
-    pages.add(3);
-    pages.add(4);
-  }
-  if (currentPage >= totalPages - 2) {
-    pages.add(totalPages - 3);
-    pages.add(totalPages - 2);
-    pages.add(totalPages - 1);
-  }
-
-  const sorted = [...pages].filter((page) => page >= 1 && page <= totalPages).sort((a, b) => a - b);
-  return sorted.flatMap((page, index) => index > 0 && page - sorted[index - 1] > 1 ? ['ellipsis', page] : [page]);
-};
+import { suiteDetailPageItems } from './suiteDetailPagination';
 
 interface SuiteDetailModalProps {
   suite: TestSuite | null;
@@ -66,13 +46,6 @@ export const SuiteDetailModal: React.FC<SuiteDetailModalProps> = ({
   onCaseCountChanged,
   onNotify,
 }) => {
-  const [cases, setCases] = useState<TestCase[]>([]);
-  const [casesOwnerSuiteId, setCasesOwnerSuiteId] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [pageMeta, setPageMeta] = useState<TestCaseListApiResponse['page'] | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [loadError, setLoadError] = useState<unknown>(null);
-  const [reloadToken, setReloadToken] = useState(0);
   const [isAdding, setIsAdding] = useState(false);
   const [isBulkAdding, setIsBulkAdding] = useState(false);
   const [isBulkDirty, setIsBulkDirty] = useState(false);
@@ -102,6 +75,20 @@ export const SuiteDetailModal: React.FC<SuiteDetailModalProps> = ({
   const editInFlightRef = useRef(false);
   const cancelDeleteRef = useRef<HTMLButtonElement>(null);
   const deleteInFlightRef = useRef(false);
+  const suiteId = suite?.id;
+  const {
+    cases: visibleCases,
+    page,
+    setPage,
+    pageMeta: visiblePageMeta,
+    isCurrentSuiteLoaded,
+    isLoading,
+    loadError,
+    reload: reloadCases,
+    updateCase,
+    updateReportedCount,
+  } = useSuiteTestCases(suiteId);
+
   const closeSuiteDetail = () => {
     if (editInFlightRef.current || isBulkSaving) return;
     if (isTestCaseEditDirty(editState) && !window.confirm('저장하지 않은 수정사항이 있습니다. 상세창을 닫을까요?')) return;
@@ -121,52 +108,6 @@ export const SuiteDetailModal: React.FC<SuiteDetailModalProps> = ({
     },
     initialFocusRef: cancelDeleteRef,
   });
-  const suiteId = suite?.id;
-
-  useEffect(() => {
-    if (!suiteId) return undefined;
-
-    let isMounted = true;
-    const fetchCases = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const cleanSuiteId = suiteId.replace('suite-', '');
-        const res = await getTestCases(cleanSuiteId, { page, size: TEST_CASE_PAGE_SIZE });
-        if (isMounted) {
-          // A deletion can make the requested last page invalid between requests.
-          if (res.items.length === 0 && res.page.totalElements > 0 && res.page.totalPages > 0 && res.page.number > res.page.totalPages) {
-            setPage(res.page.totalPages);
-            return;
-          }
-          const mappedCases: TestCase[] = res.items.map((item) => ({
-            id: `tc-${item.id}`,
-            name: item.name,
-            input: item.input,
-            expectedAction: item.expectedAction,
-            severity: item.severity,
-            category: item.category,
-            createdAt: item.createdAt || '방금 전',
-          }));
-          setCases(mappedCases);
-          setCasesOwnerSuiteId(suiteId);
-          setPageMeta(res.page);
-        }
-      } catch (error) {
-        if (isMounted) {
-          setLoadError(error);
-        }
-      } finally {
-        if (isMounted) setIsLoading(false);
-      }
-    };
-
-    fetchCases();
-    return () => {
-      isMounted = false;
-    };
-  }, [suiteId, page, reloadToken]);
-
   useEffect(() => {
     if (!pendingEditButtonFocusRef.current) return;
     if (isLoading) {
@@ -183,26 +124,10 @@ export const SuiteDetailModal: React.FC<SuiteDetailModalProps> = ({
 
   if (!suite) return null;
 
-  const isCurrentSuiteLoaded = casesOwnerSuiteId === suite.id;
-  const visibleCases = isCurrentSuiteLoaded ? cases : [];
-  const visiblePageMeta = isCurrentSuiteLoaded ? pageMeta : null;
   const totalCaseCount = visiblePageMeta?.totalElements;
 
   const publishCaseCountChange = (change: { kind: 'delta' | 'total'; value: number }) => {
-    setPageMeta((current) => {
-      if (!current) return current;
-      const totalElements = Math.max(0, change.kind === 'total'
-        ? change.value
-        : current.totalElements + change.value);
-      const totalPages = totalElements === 0 ? 0 : Math.ceil(totalElements / current.size);
-      return {
-        ...current,
-        totalElements,
-        totalPages,
-        hasPrevious: current.number > 1,
-        hasNext: current.number < totalPages,
-      };
-    });
+    updateReportedCount(change);
     onCaseCountChanged(change);
   };
 
@@ -221,13 +146,6 @@ export const SuiteDetailModal: React.FC<SuiteDetailModalProps> = ({
 
   const clearAddValidation = (field: CaseValidationField) => {
     setAddValidation((current) => current?.field === field ? null : current);
-  };
-
-  const caseServerField = (field: string): CaseValidationField => {
-    if (field.endsWith('name')) return 'name';
-    if (field.endsWith('input')) return 'input';
-    if (field.endsWith('category')) return 'category';
-    return 'request';
   };
 
   const handleAddCase = async () => {
@@ -269,7 +187,7 @@ export const SuiteDetailModal: React.FC<SuiteDetailModalProps> = ({
       };
 
       publishCaseCountChange({ kind: 'delta', value: 1 });
-      setReloadToken((token) => token + 1);
+      reloadCases();
       setIsAdding(false);
       setAddValidation(null);
       setNewCase({ name: '', input: '', expectedAction: 'BLOCK', severity: 'HIGH', category: 'PII' });
@@ -277,7 +195,7 @@ export const SuiteDetailModal: React.FC<SuiteDetailModalProps> = ({
     } catch (error) {
       const presented = presentApiError(error, '테스트 케이스를 추가하지 못했습니다.');
       if (error instanceof ApiError && error.fieldErrors?.length) {
-        failAddValidation(caseServerField(error.fieldErrors[0].field), presented.message);
+        failAddValidation(testCaseValidationFieldFromApiField(error.fieldErrors[0].field), presented.message);
       } else {
         failAddValidation('request', presented.message);
       }
@@ -340,19 +258,17 @@ export const SuiteDetailModal: React.FC<SuiteDetailModalProps> = ({
     try {
       await updateTestCase(cleanCaseId, payload);
       editInFlightRef.current = false;
-      setCases((current) => current.map((testCase) => testCase.id === editingCaseId
-        ? { ...testCase, ...payload }
-        : testCase));
+      updateCase(editingCaseId, payload);
       setEditState(EMPTY_TEST_CASE_EDIT);
       pendingEditButtonFocusRef.current = editingCaseId;
       pendingFocusSawLoadingRef.current = false;
-      setReloadToken((token) => token + 1);
+      reloadCases();
       onNotify(`테스트 케이스 '${payload.name}'가 수정되었습니다.`);
     } catch (error) {
       editInFlightRef.current = false;
       const presented = presentApiError(error, `'${payload.name}' 수정에 실패했습니다.`);
       if (error instanceof ApiError && error.fieldErrors?.length) {
-        failEditValidation(caseServerField(error.fieldErrors[0].field), presented.message);
+        failEditValidation(testCaseValidationFieldFromApiField(error.fieldErrors[0].field), presented.message);
       } else {
         failEditValidation('request', presented.message);
       }
@@ -366,7 +282,7 @@ export const SuiteDetailModal: React.FC<SuiteDetailModalProps> = ({
       await deleteTestCase(cleanCaseId);
       publishCaseCountChange({ kind: 'delta', value: -1 });
       // 삭제 뒤 서버 메타데이터를 다시 읽어, 비어 버린 마지막 페이지는 자동으로 이전 페이지로 이동한다.
-      setReloadToken((token) => token + 1);
+      reloadCases();
       onNotify(`테스트 케이스 '${name}'가 삭제되었습니다.`);
     } catch (error) {
       const presented = presentApiError(error, `'${name}' 삭제에 실패했습니다.`);
@@ -447,7 +363,7 @@ export const SuiteDetailModal: React.FC<SuiteDetailModalProps> = ({
               error={loadError}
               fallbackMessage="테스트 케이스 목록을 불러오지 못했습니다."
               stale={isCurrentSuiteLoaded}
-              onRetry={() => setReloadToken((token) => token + 1)}
+              onRetry={reloadCases}
             />
           )}
           {/* Header & Add Button */}
@@ -593,7 +509,7 @@ export const SuiteDetailModal: React.FC<SuiteDetailModalProps> = ({
                 setIsBulkDirty(false);
                 publishCaseCountChange({ kind: 'total', value: response.totalTestCaseCount });
                 setPage(1);
-                setReloadToken((token) => token + 1);
+                reloadCases();
                 onNotify(`테스트 케이스 ${response.createdCount}개가 등록되었습니다. (전체 ${response.totalTestCaseCount}개)`);
               }}
             />
@@ -822,7 +738,7 @@ export const SuiteDetailModal: React.FC<SuiteDetailModalProps> = ({
             >
               이전
             </button>
-            {visiblePageMeta && pageItems(visiblePageMeta.number, visiblePageMeta.totalPages).map((item, index) => item === 'ellipsis' ? (
+            {visiblePageMeta && suiteDetailPageItems(visiblePageMeta.number, visiblePageMeta.totalPages).map((item, index) => item === 'ellipsis' ? (
               <span key={`ellipsis-${index}`} aria-hidden="true" className="px-1 text-xs text-[#697586]">…</span>
             ) : (
               <button

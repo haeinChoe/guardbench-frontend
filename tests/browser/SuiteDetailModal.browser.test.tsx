@@ -203,6 +203,43 @@ test('mobile pagination stays horizontal and follows the visual focus order', as
   await expect.poll(() => document.activeElement).toBe(closeButton.element());
 });
 
+test('case list pagination recovers when deletion makes the requested last page invalid', async () => {
+  const firstPageCase = { ...originalCase, name: '복구된 첫 페이지 케이스' };
+  let firstPageRequests = 0;
+  const { requests } = installApiStub((request) => {
+    if (request.method !== 'GET' || !request.url.pathname.endsWith('/test-suites/7/test-cases')) {
+      throw new Error(`Unexpected API request: ${request.method} ${request.url.pathname}`);
+    }
+
+    if (request.url.searchParams.get('page') === '2') {
+      return apiSuccess({
+        items: [],
+        page: {
+          number: 2,
+          size: 20,
+          totalElements: 1,
+          totalPages: 1,
+          hasPrevious: true,
+          hasNext: false,
+        },
+      });
+    }
+
+    firstPageRequests += 1;
+    return apiSuccess(listResponse(firstPageCase, firstPageRequests === 1 ? 2 : 1));
+  });
+
+  const screen = await renderSuite();
+  await expect.element(screen.getByText('복구된 첫 페이지 케이스')).toBeVisible();
+  await screen.getByRole('button', { name: '2페이지' }).click();
+
+  await expect.poll(() => requests.filter(({ url }) => url.searchParams.get('page') === '2').length).toBe(1);
+  await expect.poll(() => requests.filter(({ url }) => url.searchParams.get('page') === '1').length).toBe(2);
+  await expect.element(screen.getByRole('button', { name: '1페이지' })).toHaveAttribute('aria-current', 'page');
+  await expect.element(screen.getByRole('button', { name: '2페이지' })).not.toBeInTheDocument();
+  await expect.element(screen.getByText('복구된 첫 페이지 케이스')).toBeVisible();
+});
+
 test('bulk creation previews editable rows, deduplicates retries and reloads the list after success', async () => {
   let getAttempt = 0;
   let postAttempt = 0;

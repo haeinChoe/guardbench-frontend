@@ -2,7 +2,7 @@
 
 > Status: APPROVED
 > Owner: Frontend
-> Last reviewed: 2026-09-25
+> Last reviewed: 2026-09-26
 > Canonical source: GitHub repository (`src/`)
 > Scope: GitHub Issues #34, #62, #86, #111, #113
 > #86 갱신: 단일 Target 생성 계약과 결과·회귀 화면의 평가 정책 metadata 제거를 반영한다.
@@ -87,7 +87,8 @@ fixture-backed demo adapter와 fail-fast 설정 처리는 구현되어 있지 �
 | 상태 | 서버 source of truth | 현재 요청·상태 owner | 분리된 local state |
 | --- | --- | --- | --- |
 | Suite 목록 | `GET /test-suites` | `SuitesView` | 선택 card, 생성 modal |
-| Suite/TestCase 편집 | Suite 및 TestCase service | `SuiteDetailModal` | create/edit draft와 선택 row |
+| Suite 내 TestCase 목록 | `GET /test-suites/{id}/test-cases` | `useSuiteTestCases` | 현재 page와 collection 갱신 상태 |
+| TestCase mutation | TestCase service | `SuiteDetailModal` | create/edit draft와 선택 row |
 | Run 목록 | `GET /test-runs` | `RunsView` | 검색·상태 filter |
 | Run 상세와 polling | `GET /test-runs/{id}` | `ResultDetailView` + `useLiveRunProgress` | result selection, filters, tabs |
 | Run 결과 목록 | `GET /test-runs/{id}/results` | `ResultDetailView` | page/filter/sort 상태; list DTO에 Application Response 없음 |

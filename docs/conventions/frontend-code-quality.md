@@ -66,30 +66,32 @@ View는 Hook, Service, Common component와 presentation helper를 사용할 수 
 | --- | --- |
 | App과 스타일 | `src/main.tsx` React 진입점; `src/App.tsx` route·shell·toast 조합; `src/App.css`, `src/index.css` 전역 스타일 |
 | Assets | `src/assets/hero.png`, `src/assets/react.svg`, `src/assets/vite.svg` 정적 파일 |
-| Common UI (`src/components/common/`) | `ActionValue.tsx` action 값 표시; `BulkTestCaseCreatePanel.tsx` 일괄 입력 UI; `CreateSuiteModal.tsx` suite 생성 입력·검증·제출; `RequestErrorBanner.tsx` 요청 오류 표현; `RunProgressStepper.tsx` 진행 표현; `StatCard.tsx` 통계 표시; `StatusPill.tsx` 상태 표시; `SuiteDetailModal.tsx` suite 상세·case CRUD 및 bulk·pagination 흐름 |
-| Common helper (`src/components/common/`) | `actionPresentation.ts` action label/tone; `statusLabels.ts` 진행 status label; `testCaseEditState.ts` case edit draft·validation·transition |
+| Common UI (`src/components/common/`) | `ActionValue.tsx` action 값 표시; `BulkTestCaseCreatePanel.tsx` 일괄 입력 UI; `CreateSuiteModal.tsx` suite 생성 입력·검증·제출; `RequestErrorBanner.tsx` 요청 오류 표현; `RunProgressStepper.tsx` 진행 표현; `StatCard.tsx` 통계 표시; `StatusPill.tsx` 상태 표시; `SuiteDetailModal.tsx` case mutation·bulk UI (`useSuiteTestCases`에 collection 조회 위임) |
+| Common helper (`src/components/common/`) | `actionPresentation.ts` action label/tone; `statusLabels.ts` 진행 status label; `suiteDetailPagination.ts` TestCase page item 계산; `testCaseEditState.ts` case edit draft·API field mapping·validation·transition |
 | Layout (`src/components/layout/`) | `Sidebar.tsx` navigation 및 mobile menu interaction; `Topbar.tsx` 상단 셸 표시 |
 | Views (`src/components/views/`) | `DashboardView.tsx` 요약 조회·집계·표현; `NewRunView.tsx` suite 선택, target/policy form과 Run 접수; `RunsView.tsx` Run collection 조회·filter; `SuitesView.tsx` suite collection 조회 및 modal 연결 |
 | Result / evaluation views (`src/components/views/`) | `ResultDetailView.tsx` Run progress, 결과·metrics 조회, filter·pagination 및 상세 표시; `QualityGateEvidence.tsx` Gate 근거 표현; `QualityGateMetricsChart.tsx` metric chart; `ApplicationResponseEvidence.tsx` 선택 결과 근거 조회 및 접기 |
 | Regression views (`src/components/views/`) | `RegressionComparisonSection.tsx` summary·분포·filter·비교 table 표시; `RegressionDetailView.tsx` 상세 비교 화면; `RegressionSummaryEntry.tsx` 요약 진입점 |
 | View pure helpers (`src/components/views/`) | `applicationResponsePresentation.ts` response 출처 표시; `evaluationOutcomePresentation.ts` outcome label/tone; `newRunForm.ts` form parse·request mapping; `qualityGatePresentation.ts` server metric presentation; `regressionSummary.ts` summary·distribution mapping; `resultFilterPresentation.ts` filter state·empty/count presentation; `resultInspectionPresentation.ts` 결과별 확인 안내; `resultPaginationPresentation.ts` 결과 pagination item 계산 |
 | Config와 contract | `config/layers.ts` portal layer class; `config/runtimeConfig.ts` runtime mode/base URL; `contracts/openapiNullability.contract.ts` compile-time nullable contract |
-| Hooks와 state helpers (`src/hooks/`) | `useDialogFocus.ts` dialog focus lifecycle; `useLiveRunProgress.ts` Run progress polling; `useRegressionComparison.ts` candidate·summary·comparison 조회와 retry; `regressionComparisonState.ts` 비교 query key·전이 규칙 |
+| Hooks와 state helpers (`src/hooks/`) | `useDialogFocus.ts` dialog focus lifecycle; `useLiveRunProgress.ts` Run progress polling; `useRegressionComparison.ts` candidate·summary·comparison 조회와 retry; `useSuiteTestCases.ts` suite별 TestCase page 조회·갱신; `regressionComparisonState.ts` 비교 query key·전이 규칙 |
 | Routing | `routing/routes.ts` route parse·serialize 및 Run identity |
 | Services (`src/services/`) | `apiClient.ts` fetch·envelope·공개 오류 경계; `testSuiteService.ts`, `testCaseService.ts`, `testRunService.ts`, `regressionService.ts` endpoint DTO와 요청 함수 |
 | Types와 Utils | `types/index.ts` 공유 frontend type; `utils/testCaseBulkImport.ts` JSON/CSV 순수 import parser와 payload 변환 |
 
 ### 우선 검토 결과
 
-- `SuiteDetailModal.tsx`(923줄)는 목록 조회·pagination, 상세 편집, case 추가·삭제, bulk add와 dialog lifecycle을 한 컴포넌트에 결합한다. 변경 이유와 focus/error lifecycle을 기준으로 별도 리팩터링 후보를 선정한다.
+- `SuiteDetailModal.tsx`(현재 839줄)는 case 추가·수정·삭제, bulk add와 dialog lifecycle을 소유한다. 목록 조회와 pagination state는 `useSuiteTestCases`로 분리했으며, 남은 변경은 form·dialog의 state와 focus/error lifecycle을 기준으로 선정한다.
 - `CreateSuiteModal.tsx`(571줄)는 기본 case 입력과 JSON/CSV bulk 입력, 검증, 제출 흐름을 한 modal에 둔다. bulk parser는 이미 `utils/testCaseBulkImport.ts`에 pure logic으로 분리돼 있다.
-- `ResultDetailView.tsx`(591줄)는 progress polling 연결, 결과·Evaluator 조회, filter·pagination, race recovery와 상세 dialog를 소유한다. 의미별 state와 request identity를 확인하며 단계적으로 분리한다.
+- `ResultDetailView.tsx`(579줄)는 progress polling 연결, 결과·Evaluator 조회, filter·pagination, race recovery와 상세 dialog를 소유한다. 의미별 state와 request identity를 확인하며 단계적으로 분리한다.
 - `useRegressionComparison.ts`(350줄)는 candidate, summary, detail query와 자동 재시도 lifecycle을 관리한다. state identity와 retry 계약이 얽혀 있어 무관한 단순화는 하지 않는다.
 - 서비스별 API DTO와 pure presentation helper가 이미 존재한다. API DTO 구조가 UI에 우연히 맞는다는 이유만으로 layer를 합치지 않는다.
 - 코드베이스에 Node pure logic/contract test와 Chromium component test가 있다. 분리한 계산은 Node test로, 실제 DOM interaction·focus·접근성은 browser test로 검증한다.
 - 고위험 영역의 state 개수나 파일 길이는 단독 품질 지표가 아니다. 해당 값만 줄이려는 refactor는 하지 않는다.
 
 Issue #8의 첫 단계에서는 결과 filter의 DOM 문자열을 허용된 union 값으로 검증하고, 결과 pagination item 계산을 화면에서 분리해 순수 helper로 만들었다. 기존 옵션, 요청 mapping, 페이지 표시와 화면 문구는 유지한다. 추출한 filter 및 pagination helper는 Node test에서 허용·거부 입력과 페이지 경계를 검증한다.
+
+후속 단계에서는 `SuiteDetailModal`에서 TestCase page 조회·갱신 lifecycle을 `useSuiteTestCases`로 옮기고 화면은 hook이 제공하는 visible collection, loading/error와 page 상태를 사용한다. 기존 suite identity 방어, 실패 재시도와 삭제 후 유효하지 않은 마지막 page 복구를 browser test로 확인한다. TestCase pagination item 계산과 API field validation 경로 mapping은 각각 순수 helper로 분리해 Node test를 추가한다. 요청 처리, 오류 표현, pagination 동작과 사용자 화면은 바꾸지 않는다.
 
 ## 6. 검증 및 변경 기준
 
