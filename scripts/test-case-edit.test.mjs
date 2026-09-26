@@ -71,6 +71,13 @@ test('validation reports each required field without producing a payload', () =>
   }
 });
 
+test('API validation paths map to the editable field or the general request field', () => {
+  assert.equal(editState.testCaseValidationFieldFromApiField('name'), 'name');
+  assert.equal(editState.testCaseValidationFieldFromApiField('items[1].input'), 'input');
+  assert.equal(editState.testCaseValidationFieldFromApiField('category'), 'category');
+  assert.equal(editState.testCaseValidationFieldFromApiField('items[1].severity'), 'request');
+});
+
 test('a failed save keeps the edited draft and allows a retry', () => {
   const opened = editState.beginTestCaseEdit(testCase);
   const changed = editState.changeTestCaseEdit(opened, { name: '사용자가 입력한 이름' }, 'name');
