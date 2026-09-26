@@ -1,0 +1,108 @@
+name: Feature
+description: 승인 가능한 사용자 요구사항과 완료 조건으로 기능 작업을 정의합니다.
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        결론부터 간결하게 씁니다. DRAFT나 미결정에 따라 공개 동작이 달라지면 구현 전에 먼저 결정합니다.
+
+  - type: textarea
+    id: purpose
+    attributes:
+      label: 목적
+      description: 누구에게 어떤 결과를 제공하며 왜 필요한지 적어주세요.
+    validations:
+      required: true
+
+  - type: textarea
+    id: contracts
+    attributes:
+      label: 관련 Frontend 계약
+      description: docs/README.md에서 확인한 문서 경로와 상태(APPROVED/DRAFT)를 적습니다. 해당 없으면 이유를 적습니다.
+      placeholder: |
+        - docs/product/screen-spec.md (APPROVED)
+        - docs/api/openapi.yaml (Backend APPROVED 사본)
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: 구현 범위
+      description: 변경을 허용하는 사용자 흐름, 화면, API 소비, 계층 또는 파일을 구체적으로 적어주세요.
+    validations:
+      required: true
+
+  - type: textarea
+    id: non_goals
+    attributes:
+      label: Non-Goals
+      description: 이번 Issue에서 구현하지 않을 인접 기능이나 refactor를 적어주세요.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 완료 조건과 검증
+      description: 관찰 가능한 결과와 실행할 Node/browser 테스트를 체크리스트로 작성해 주세요.
+      placeholder: |
+        - [ ] 유효한 동작은 승인된 화면·API 소비 계약을 따른다.
+        - [ ] 관련 Node/browser 테스트와 build가 통과한다.
+    validations:
+      required: true
+
+  - type: textarea
+    id: contract_impact
+    attributes:
+      label: 계약과 아키텍처 영향
+      description: Backend API, Frontend API 소비, 화면 동작, route/state, 접근성, production 의존성, architecture 영향 여부와 승인 근거를 적어주세요. Backend schema 변경은 Backend에서 먼저 승인합니다.
+      placeholder: |
+        - Backend API 계약: 없음
+        - Frontend API 소비: 없음
+        - 화면·route·state: 있음 — 근거: Issue 또는 APPROVED 문서
+        - 접근성: 없음
+        - production 의존성: 없음
+        - architecture: 없음
+    validations:
+      required: true
+
+  - type: textarea
+    id: open_questions
+    attributes:
+      label: 미결정 사항과 의존 작업
+      description: 구현 전 결정 사항과 선행 Issue를 적습니다. 없으면 "없음"으로 작성합니다.
+    validations:
+      required: true
+
+  - type: input
+    id: branch_slug
+    attributes:
+      label: 브랜치 slug
+      description: Issue 생성 후 agent/{issue-number}-{slug} 브랜치에 사용합니다.
+      placeholder: add-run-filter
+    validations:
+      required: true
+
+  - type: dropdown
+    id: agent_permission
+    attributes:
+      label: 에이전트 작업 범위
+      description: Issue 자체는 commit, push, PR 생성, merge 또는 force push 권한을 부여하지 않습니다.
+      options:
+        - 검증된 로컬 커밋까지 허용
+        - 파일 수정과 검증까지 허용 — 커밋 금지
+        - 조사와 진단만 허용 — 파일 변경 금지
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: ready
+    attributes:
+      label: 구현 준비 확인
+      options:
+        - label: 완료 조건은 구체적이며 DRAFT·미결정이나 미승인 Backend 계약을 구현 근거로 사용하지 않습니다.
+          required: true

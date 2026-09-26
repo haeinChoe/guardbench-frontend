@@ -25,9 +25,16 @@ import { QualityGateEvidence } from './QualityGateEvidence';
 import {
   deriveResultListPresentation,
   EMPTY_RESULT_FILTERS,
+  parseAssertionStatusFilter,
+  parseEvaluationOutcomeFilter,
+  parseExecutionStatusFilter,
+  parseExpectedActionFilter,
+  parseResultSortFilter,
+  parseSeverityFilter,
   type OutcomeFilter,
   type ResultFilters,
 } from './resultFilterPresentation';
+import { resultPageItems } from './resultPaginationPresentation';
 import { resultInspectionGuide } from './resultInspectionPresentation';
 
 interface ResultDetailViewProps {
@@ -40,25 +47,6 @@ interface ResultDetailViewProps {
 }
 
 const RESULT_PAGE_SIZE = 20;
-
-const pageItems = (currentPage: number, totalPages: number): Array<number | 'ellipsis'> => {
-  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, index) => index + 1);
-
-  const pages = new Set([1, totalPages, currentPage - 1, currentPage, currentPage + 1]);
-  if (currentPage <= 3) {
-    pages.add(2);
-    pages.add(3);
-    pages.add(4);
-  }
-  if (currentPage >= totalPages - 2) {
-    pages.add(totalPages - 3);
-    pages.add(totalPages - 2);
-    pages.add(totalPages - 1);
-  }
-
-  const sorted = [...pages].filter((page) => page >= 1 && page <= totalPages).sort((a, b) => a - b);
-  return sorted.flatMap((page, index) => index > 0 && page - sorted[index - 1] > 1 ? ['ellipsis', page] : [page]);
-};
 
 const executionLabel = (status: TestRunResultListItemRes['executionStatus']) => ({
   SUCCEEDED: '정상 처리', FAILED: '처리 실패', TIMED_OUT: '시간 초과', NOT_STARTED: '미실행',
@@ -501,12 +489,12 @@ export const ResultDetailView: React.FC<ResultDetailViewProps> = ({
             <label>이름<input value={filters.name} onChange={(event) => { setFilters((current) => ({ ...current, name: event.target.value })); setResultPage(1); }} className="mt-1 w-full rounded-lg border bg-white px-2 py-1.5" /></label>
             <label>입력<input value={filters.input} onChange={(event) => { setFilters((current) => ({ ...current, input: event.target.value })); setResultPage(1); }} className="mt-1 w-full rounded-lg border bg-white px-2 py-1.5" /></label>
             <label>카테고리<input value={filters.category} onChange={(event) => { setFilters((current) => ({ ...current, category: event.target.value })); setResultPage(1); }} className="mt-1 w-full rounded-lg border bg-white px-2 py-1.5" /></label>
-            <label>기대 동작<select value={filters.expectedAction} onChange={(event) => { setFilters((current) => ({ ...current, expectedAction: event.target.value as ResultFilters['expectedAction'] })); setResultPage(1); }} className="mt-1 w-full rounded-lg border bg-white px-2 py-1.5"><option value="">전체</option><option value="ALLOW">ALLOW</option><option value="BLOCK">BLOCK</option></select></label>
-            <label>위험도<select value={filters.severity} onChange={(event) => { setFilters((current) => ({ ...current, severity: event.target.value as ResultFilters['severity'] })); setResultPage(1); }} className="mt-1 w-full rounded-lg border bg-white px-2 py-1.5"><option value="">전체</option>{Object.keys(severityPresentation).map((severity) => <option key={severity} value={severity}>{severity}</option>)}</select></label>
-            <label>처리 상태<select value={filters.executionStatus} onChange={(event) => { setFilters((current) => ({ ...current, executionStatus: event.target.value as ResultFilters['executionStatus'] })); setResultPage(1); }} className="mt-1 w-full rounded-lg border bg-white px-2 py-1.5"><option value="">전체</option><option value="SUCCEEDED">정상 처리</option><option value="FAILED">처리 실패</option><option value="TIMED_OUT">시간 초과</option><option value="NOT_STARTED">미실행</option></select></label>
-            <label>기대 일치 여부<select value={filters.assertionStatus} onChange={(event) => { setFilters((current) => ({ ...current, assertionStatus: event.target.value as ResultFilters['assertionStatus'] })); setResultPage(1); }} className="mt-1 w-full rounded-lg border bg-white px-2 py-1.5"><option value="">전체</option><option value="PASS">일치 (PASS)</option><option value="FAIL">불일치 (FAIL)</option></select></label>
-            <label>판정 유형<select value={filters.evaluationOutcome} onChange={(event) => { setFilters((current) => ({ ...current, evaluationOutcome: event.target.value as OutcomeFilter })); setResultPage(1); }} className="mt-1 w-full rounded-lg border bg-white px-2 py-1.5">{OUTCOME_FILTERS.map((filter) => <option key={filter.value} value={filter.value}>{filter.label}</option>)}</select></label>
-            <label>정렬<select value={filters.sort} onChange={(event) => { setFilters((current) => ({ ...current, sort: event.target.value as ResultFilters['sort'] })); setResultPage(1); }} className="mt-1 w-full rounded-lg border bg-white px-2 py-1.5"><option value="">기본 정렬</option><option value="severity,desc">위험도 높은 순</option><option value="severity,asc">위험도 낮은 순</option><option value="name,asc">이름순</option><option value="name,desc">이름 역순</option></select></label>
+            <label>기대 동작<select value={filters.expectedAction} onChange={(event) => { const value = parseExpectedActionFilter(event.currentTarget.value); if (value === null) return; setFilters((current) => ({ ...current, expectedAction: value })); setResultPage(1); }} className="mt-1 w-full rounded-lg border bg-white px-2 py-1.5"><option value="">전체</option><option value="ALLOW">ALLOW</option><option value="BLOCK">BLOCK</option></select></label>
+            <label>위험도<select value={filters.severity} onChange={(event) => { const value = parseSeverityFilter(event.currentTarget.value); if (value === null) return; setFilters((current) => ({ ...current, severity: value })); setResultPage(1); }} className="mt-1 w-full rounded-lg border bg-white px-2 py-1.5"><option value="">전체</option>{Object.keys(severityPresentation).map((severity) => <option key={severity} value={severity}>{severity}</option>)}</select></label>
+            <label>처리 상태<select value={filters.executionStatus} onChange={(event) => { const value = parseExecutionStatusFilter(event.currentTarget.value); if (value === null) return; setFilters((current) => ({ ...current, executionStatus: value })); setResultPage(1); }} className="mt-1 w-full rounded-lg border bg-white px-2 py-1.5"><option value="">전체</option><option value="SUCCEEDED">정상 처리</option><option value="FAILED">처리 실패</option><option value="TIMED_OUT">시간 초과</option><option value="NOT_STARTED">미실행</option></select></label>
+            <label>기대 일치 여부<select value={filters.assertionStatus} onChange={(event) => { const value = parseAssertionStatusFilter(event.currentTarget.value); if (value === null) return; setFilters((current) => ({ ...current, assertionStatus: value })); setResultPage(1); }} className="mt-1 w-full rounded-lg border bg-white px-2 py-1.5"><option value="">전체</option><option value="PASS">일치 (PASS)</option><option value="FAIL">불일치 (FAIL)</option></select></label>
+            <label>판정 유형<select value={filters.evaluationOutcome} onChange={(event) => { const value = parseEvaluationOutcomeFilter(event.currentTarget.value); if (value === null) return; setFilters((current) => ({ ...current, evaluationOutcome: value })); setResultPage(1); }} className="mt-1 w-full rounded-lg border bg-white px-2 py-1.5">{OUTCOME_FILTERS.map((filter) => <option key={filter.value} value={filter.value}>{filter.label}</option>)}</select></label>
+            <label>정렬<select value={filters.sort} onChange={(event) => { const value = parseResultSortFilter(event.currentTarget.value); if (value === null) return; setFilters((current) => ({ ...current, sort: value })); setResultPage(1); }} className="mt-1 w-full rounded-lg border bg-white px-2 py-1.5"><option value="">기본 정렬</option><option value="severity,desc">위험도 높은 순</option><option value="severity,asc">위험도 낮은 순</option><option value="name,asc">이름순</option><option value="name,desc">이름 역순</option></select></label>
           </div>
           <button type="button" onClick={() => { setFilters(EMPTY_RESULT_FILTERS); setResultPage(1); }} className="mt-3 font-bold text-[#43515d] underline">고급 필터 초기화</button>
         </details>
@@ -548,7 +536,7 @@ export const ResultDetailView: React.FC<ResultDetailViewProps> = ({
           >
             이전
           </button>
-          {pageItems(visiblePageMeta.number, visiblePageMeta.totalPages).map((item, index) => item === 'ellipsis' ? (
+          {resultPageItems(visiblePageMeta.number, visiblePageMeta.totalPages).map((item, index) => item === 'ellipsis' ? (
             <span key={`ellipsis-${index}`} aria-hidden="true" className="px-1 text-[#697586]">…</span>
           ) : (
             <button

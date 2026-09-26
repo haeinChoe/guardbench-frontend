@@ -1,17 +1,16 @@
 # 프론트엔드 UI 및 접근성 가이드
 
-> Status: AS-IS / TO-BE / 미결정
+> Status: APPROVED
 > Owner: Frontend
-> Last reviewed: 2026-09-04
+> Last reviewed: 2026-09-25
+> Canonical source: GitHub repository (`src/components/`, `src/hooks/`, `tests/browser/`)
 > Scope: GitHub Issues #35, #62, #86
-> AS-IS baseline: `dev@554a2d9705c0cfd4bb25b03ae9dbe779e816a53e`
-> #86 갱신: 단일 Target 생성 계약과 결과·회귀 화면의 평가 정책 metadata 제거를 반영한다.
 > Canonical API: [`../api/openapi.yaml`](../api/openapi.yaml) (`APPROVED`)
 > Product flows: [`../product/screen-spec.md`](../product/screen-spec.md), [`../product/user-flows.md`](../product/user-flows.md)
 > API consumption contract: [`../contracts/api-integration.md`](../contracts/api-integration.md)
 > Architecture: [`../architecture/frontend-architecture.md`](../architecture/frontend-architecture.md)
 
-이 문서는 최신 OpenAPI 상태를 사용자가 오해하지 않도록 표현하는 UI 및 접근성 기준을 정의한다. API 의미는 OpenAPI와 API 연동 계약을 따르고, 이 문서는 label, feedback, interaction과 접근성 표현만 소유한다.
+이 문서는 현재 source와 browser tests에서 확인한 UI 및 접근성 기준을 정의한다. 미래 UI 개선 제안은 `DRAFT`로 표시하고 구현 규칙과 구분한다. API 의미는 Backend OpenAPI와 API 연동 계약을 따르고, 이 문서는 label, feedback, interaction과 접근성 표현만 소유한다.
 
 ## 1. 기본 원칙
 
@@ -19,11 +18,11 @@
 - 색상, icon 또는 위치 하나만으로 상태 의미를 전달하지 않는다.
 - lifecycle, execution outcome, Evaluator verdict, assertion, Quality Gate와 Regression을 하나의 “성공/실패”로 합치지 않는다.
 - 사용자가 입력하는 Application Target과 Backend의 내부 판정 설정을 구분한다.
-- Application 자연어 응답은 조회·저장·표시하지 않는다.
+- 상세 API가 제공하는 Application Response는 목록 DTO와 구분하고, 현재 UI의 명시적 disclosure 동작을 따른다. provider 원문과 내부 예외 메시지는 다른 데이터다.
 - OpenAPI에 없는 값, metric, error 의미와 comparison classification을 UI에서 추정하지 않는다.
 - keyboard와 screen reader 사용자가 pointer 사용자와 같은 정보·action에 접근할 수 있어야 한다.
 
-## 2. 현재 공통 UI (`AS-IS`)
+## 2. 현재 공통 UI (`Current behavior`)
 
 | 영역 | 현재 지원 | 주요 차이 |
 | --- | --- | --- |
@@ -31,12 +30,12 @@
 | empty | 실제 API empty와 filter empty 전용 표현 | CTA와 mobile 표현 보완 가능 |
 | error | 지속 banner, code, field error, stale, retry | endpoint별 사용자 행동 문구 보완 가능 |
 | status | lifecycle, outcome, Gate, assertion 축별 pill과 text | 공통 label 확장 시 중복 방지 필요 |
-| form | Target/Profile field, label, required marker, client/server validation | 접근 가능한 error summary 보완 가능 |
+| form | Application Target field, label, required marker, client/server validation | 접근 가능한 error summary 보완 가능 |
 | modal | 공통 focus trap, Escape, trigger 복귀와 layer 정책 | native widget과 입력 손실 정책 지속 검증 |
-| demo | 상단 data mode 표식 | 실제 API 결과와 정적 Dashboard 자료의 출처 구분 |
+| demo mode | 상단 banner | 현재 별도 fixture data source는 제공하지 않음 |
 
 현재 UI는 필수 Application model, 최신 TestRun 생성·결과 DTO와 확정 Quality Gate metrics를 사용한다.
-comparison DTO도 확정됐지만 전용 UI는 #30의 선택 구현 범위다.
+Regression summary와 전용 비교 화면은 현재 구현되어 있으며 backend가 반환한 비교 결과를 표시한다.
 
 ## 3. Loading과 진행 상태
 
@@ -55,7 +54,7 @@ comparison DTO도 확정됐지만 전용 UI는 #30의 선택 구현 범위다.
 - background 갱신 실패 후 이전 progress를 유지하면 “마지막 확인값” 또는 stale 표시를 함께 제공한다.
 - `FINISHED`는 성공만을 의미하지 않으므로 outcome과 Quality Gate를 별도로 확인하게 한다.
 
-Polling interval, 장시간 실행 안내와 background tab 표현은 `미결정`이다.
+Polling 간격과 hidden-tab 동작은 [`useLiveRunProgress`](../architecture/frontend-architecture.md) 구현을 따른다. 전체 대기 시간과 별도 장시간 실행 안내는 구현되어 있지 않다.
 
 ## 4. 빈 결과
 
@@ -97,7 +96,7 @@ Polling interval, 장시간 실행 안내와 background tab 표현은 `미결정
 - 이전 data를 유지하면 stale임을 text로 표시한다.
 - 공개된 안전한 message만 사용하며 provider 원문, stack trace와 내부 예외를 노출하지 않는다.
 
-자동 retry, offline mode, 오류 report와 마지막 성공 data 유지 기간은 `미결정`이다.
+Polling의 transient retry는 hook 정책을 따른다. 일반 요청의 자동 retry, offline mode, 오류 reporting과 마지막 성공 data 보존 기간은 구현되어 있지 않다.
 
 ## 6. Form과 validation
 
@@ -145,7 +144,7 @@ Idempotency-Key는 사용자 입력 field가 아니다. 재전송 정책이 확�
 - destructive action은 label, 시각 표현과 필요 시 확인 절차로 구분한다.
 - click target 크기와 간격은 touch 사용을 고려한다.
 
-최소 touch target token과 공통 button component 도입은 `미결정`이다.
+공통 touch-target token과 button component 체계는 구현되어 있지 않다.
 
 ## 8. Toast와 지속 feedback
 
@@ -163,7 +162,7 @@ Idempotency-Key는 사용자 입력 field가 아니다. 재전송 정책이 확�
 - 동일 오류 toast가 Polling마다 반복되지 않게 한다.
 - toast가 사라져도 핵심 상태는 화면에서 확인할 수 있어야 한다.
 
-toast queue, 지속 시간과 중복 억제 구현은 `미결정`이다. `aria-live`, `role="status"` 등 동적 상태의 screen reader 음성 안내는 #17에서 정한 이번 데모 범위에서 제외한다. 성공·오류와 핵심 상태는 지속 영역에서도 확인할 수 있어야 한다.
+toast는 현재 App에서 단일 message를 표시하고 2.8초 후 숨긴다. queue와 중복 억제는 구현되어 있지 않다. `aria-live`, `role="status"` 등 동적 상태의 screen reader 음성 안내는 #17에서 정한 이번 데모 범위에서 제외한다. 성공·오류와 핵심 상태는 지속 영역에서도 확인할 수 있어야 한다.
 
 ## 9. Table, list, filter와 pagination
 
@@ -176,7 +175,7 @@ toast queue, 지속 시간과 중복 억제 구현은 `미결정`이다. `aria-l
 - 현재 result page의 count를 전체 Run count처럼 표시하지 않는다.
 - 좁은 viewport에서는 핵심 열 우선, horizontal scroll 또는 row detail을 선택하되 정보 자체를 제거하지 않는다.
 
-filter/page의 URL 보존과 mobile table pattern은 `미결정`이다.
+filter/page는 URL에 보존되지 않는다. 공통 mobile table pattern은 구현되어 있지 않다.
 
 ## 10. Dialog, modal과 drawer
 
@@ -191,7 +190,7 @@ filter/page의 URL 보존과 mobile table pattern은 `미결정`이다.
 - 오류 후 modal을 닫지 않고 입력과 오류를 유지한다.
 - layer 순서는 공통 token을 사용하며 현재 Topbar·mobile backdrop `z-40` < Sidebar `z-50` < Dialog `z-[60]` < toast `z-[70]` 순으로 둔다.
 
-Snapshot 상세 modal은 public result DTO만 사용한다. Application 자연어 응답, provider 원문과 내부 오류를 표시하는 영역을 만들지 않는다.
+Snapshot 상세 dialog는 목록 결과 외에 `ApplicationResponseEvidence`를 표시한다. 이 component는 개별 결과 상세 API를 on-demand 호출하며 provider 원문이나 내부 예외 메시지를 Application Response로 취급하지 않는다.
 
 ## 11. Keyboard, focus와 page structure
 
@@ -203,7 +202,7 @@ Snapshot 상세 modal은 public result DTO만 사용한다. Application 자연�
 - visible focus indicator를 제거하지 않는다.
 - 새 화면 navigation 후 focus를 page heading 또는 main content로 이동하는 정책을 검토한다.
 
-skip link, route change announcement와 screen reader 지원 matrix는 #17에서 정한 이번 데모 범위에서 제외한다. 정확한 route focus 이동 정책은 `미결정`이다.
+skip link, route change announcement와 screen reader 지원 matrix는 #17에서 정한 이번 데모 범위에서 제외한다. Route 변경 후 heading으로 focus를 이동하는 정책은 구현되어 있지 않다.
 
 ## 12. 반응형, 확대와 motion
 
@@ -214,7 +213,7 @@ skip link, route change announcement와 screen reader 지원 matrix는 #17에서
 - motion은 의미 전달을 보조할 뿐 유일한 상태 신호가 아니다.
 - `prefers-reduced-motion`에서 불필요한 animation을 줄인다.
 
-지원 browser와 breakpoint token은 `미결정`이다.
+지원 browser matrix와 공통 breakpoint token은 정의되어 있지 않다.
 
 ## 13. 상태 의미와 표현
 
@@ -275,7 +274,7 @@ skip link, route change announcement와 screen reader 지원 matrix는 #17에서
 - 모델의 보편적 정확도나 절대 ground truth로 과장하지 않는다.
 - 관측된 동작이 없는 실행 실패는 판정 매트릭스에 포함되지 않음을 안내한다.
 
-chart 유형, 숫자 rounding과 mobile 배치는 `미결정`이다.
+추가 chart 유형, 숫자 rounding 규칙과 mobile 전용 chart 배치는 공통 계약으로 정의되어 있지 않다.
 
 ## 15. Regression 비교
 
@@ -288,31 +287,35 @@ chart 유형, 숫자 rounding과 mobile 배치는 `미결정`이다.
 - summary count와 item을 현재 result page에서 다시 계산하지 않는다.
 - 요약 집계의 사용자 표기는 `악화 / 개선 / 변화 없음 / 비교 불가`를 사용하고, API 필드명과 enum은 내부 계약으로만 유지한다.
 
-Regression 전용 UI는 #30의 선택 구현 범위다.
+Regression 전용 화면은 구현되어 있으며 비교 가능한 Run 선택과 서버가 반환한 summary 및 case-level 결과를 표시한다.
 
-## 16. Application 자연어 응답 비공개
+## 16. Application Response disclosure
 
-Application 자연어 응답은 Evaluator 내부 입력이며 public UI에 표시하지 않는다.
+현재 `ApplicationResponseEvidence`는 Snapshot 상세 dialog에서 결과 상세 API를 호출해 Application Response를 별도로 가져온다. 결과 목록에는 이 값이 포함되지 않는다.
 
-- 관리자 또는 배포 전 테스트라는 이유만으로 reveal action을 제공하지 않는다.
-- frontend state, modal, DOM, analytics, error report, log와 export에 원문을 넣지 않는다.
-- TestCaseSnapshot, execution status, verdict, assertion, outcome과 안전한 오류 정보로 결과를 검토한다.
-- 향후 제한 공개가 필요하면 별도 보안·제품 Decision과 OpenAPI 변경을 선행한다.
+- API 조회 중에는 loading 문구를 표시한다.
+- `applicationResponse: null`이면 “이 실행에는 저장된 대상 애플리케이션 응답이 없습니다.”를 표시한다.
+- 조회 실패 시 오류 문구와 다시 시도 action을 표시한다.
+- 응답이 있으면 민감정보 또는 유해한 내용이 포함될 수 있다는 안내와 함께 기본 접힘 상태로 둔다.
+- 사용자가 `응답 내용 보기`를 선택하면 원문을 표시하고, `응답 내용 숨기기`로 다시 접을 수 있다.
+- 원문은 `<pre>`에 whitespace 보존 및 줄바꿈 가능한 형태로 렌더링한다.
+
+provider 원문, stack trace와 내부 예외 메시지는 Application Response와 별개의 데이터이며 이 표시 규칙으로 공개되는 값이 아니다.
 
 ## 17. 공통 component 책임
 
-아래 표는 현재 존재하는 공통 component와 향후 공통화할 목표 책임을 함께 구분한다.
+아래 표는 공통 component와 view-owned control의 실제 책임을 구분한다.
 
 | 상태 | component 역할 | 소유 | 소유하지 않음 |
 | --- | --- | --- | --- |
-| `AS-IS` | StatusPill | 축별 label, icon과 시각 표현 | 서로 다른 상태 축의 의미 병합 |
-| `AS-IS` | RequestErrorBanner | 지속 오류, code, stale와 retry | endpoint business decision |
-| `AS-IS` | StatCard | metric label, 값과 보조 설명 | metric 계산과 API 의미 추정 |
-| `TO-BE` | FormField | label, help, error와 control 연결 | OpenAPI 외 validation 규칙 |
-| `TO-BE` | Pagination | page 이동과 metadata | server collection 재계산 |
-| `AS-IS` | Dialog hook + layer config | focus, dismiss, 중첩 surface와 layer 순서 | 특정 endpoint 호출 |
+| `Current behavior` | StatusPill | 축별 label, icon과 시각 표현 | 서로 다른 상태 축의 의미 병합 |
+| `Current behavior` | RequestErrorBanner | 지속 오류, code, stale와 retry | endpoint business decision |
+| `Current behavior` | StatCard | metric label, 값과 보조 설명 | metric 계산과 API 의미 추정 |
+| 구현 확인 | form controls | label, help, error와 control 연결 | OpenAPI 외 validation 규칙 |
+| 구현 확인 | view pagination controls | page 이동과 server metadata 표현 | server collection 재계산 |
+| `Current behavior` | Dialog hook + layer config | focus, dismiss, 중첩 surface와 layer 순서 | 특정 endpoint 호출 |
 
-공통 component는 endpoint와 mock을 직접 알지 않는다. layer 순서를 제외한 component library와 전체 design token 체계는 `미결정`이다.
+공통 component는 endpoint와 test stub을 직접 알지 않는다. 공통 FormField/Pagination component, 전체 design token 체계는 구현되어 있지 않으며 도입 시 별도 제안으로 승인한다.
 
 ## 18. 접근성 검증 전략
 
@@ -324,18 +327,17 @@ Application 자연어 응답은 Evaluator 내부 입력이며 public UI에 표�
 - reduced motion 설정을 확인한다.
 - 실제 loading, empty, stale, error, nullable과 conflict 상태 조합을 fixture로 검증한다.
 
-자동화 도구, CI required check와 수동 검증 책임자는 `미결정`이다. 실제 screen reader 음성 안내와 browser/screen reader 지원 matrix 검증은 #17에서 정한 이번 데모 범위에서 제외한다.
+현재 자동화 검증은 `docs/testing.md`의 Chromium browser tests이며 CI에서 실행된다. 실제 screen reader 음성 안내와 browser/screen reader 지원 matrix 검증은 #17에서 정한 데모 범위에서 제외됐다.
 
-## 19. 후속 구현·Decision
+## 19. DRAFT 개선 후보
 
-- form validation과 control 접근성 연결 (#65)
-- dev 대상 소스 PR build/lint CI (#64)
-- Regression 비교 UI (#30)
-- toast queue/live region과 지속 feedback
-- modal focus management와 route focus
-- responsive table pattern
-- design token과 공통 component
-- 접근성 자동화와 수동 검증 절차
+다음은 현재 계약이 아니라 후속 Issue에서 범위를 정해야 할 후보이다.
+
+- 동적 상태에 대한 screen reader announcement와 지원 matrix
+- 공통 touch target/design token 및 form/pagination component 체계
+- responsive table pattern과 route 변경 후 focus 정책
+- toast queue/live region 표준
+- screen reader를 포함한 접근성 검증 절차
 
 ## 20. 검증 근거
 
@@ -346,7 +348,7 @@ Application 자연어 응답은 Evaluator 내부 입력이며 public UI에 표�
 - [`../architecture/frontend-architecture.md`](../architecture/frontend-architecture.md)
 - `src/App.tsx`
 - `src/components/layout`, `src/components/views`, `src/components/common`
-- `src/services`, `src/hooks`, `src/types`, `src/mocks`
+- `src/services`, `src/hooks`, `src/types`, `src/contracts`, `tests/browser`
 - GitHub Issues #19, #27, #28, #29, #30, #35
 
 이 문서는 frontend code, OpenAPI, design system 또는 배포 설정을 변경하지 않는다.

@@ -2,7 +2,8 @@
 
 > Status: APPROVED
 > Owner: Frontend
-> Last reviewed: 2026-09-06
+> Last reviewed: 2026-09-25
+> Canonical source: GitHub repository (`package.json`, test configuration and tests)
 > Scope: GitHub Issues #111, #113
 
 ## 1. 선택한 구성
