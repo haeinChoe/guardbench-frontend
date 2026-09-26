@@ -90,6 +90,7 @@ stub handler는 예상하지 않은 요청을 명시적으로 실패시켜야 �
 - API 실패 후 편집 초안 유지와 재시도
 - 취소 및 저장 성공 뒤 수정 trigger로 focus 복귀
 - 360px viewport에서 이전·다음 가로쓰기와 페이지네이션 → 삭제 → 닫기 focus order
+- Suite 삭제 확인 취소 시 trigger로 focus 복귀와 삭제 요청 실패 후 재시도
 
 ## 7. Quality Gate evidence 사례
 

@@ -169,6 +169,60 @@ test('dirty edit cancellation returns focus to its edit trigger', async () => {
   expect(window.confirm).toHaveBeenCalledWith('저장하지 않은 수정사항을 취소할까요?');
 });
 
+test('suite delete confirmation returns focus to its trigger when cancelled', async () => {
+  installApiStub((request) => {
+    if (request.method === 'GET') return apiSuccess(listResponse());
+    throw new Error(`Unexpected API request: ${request.method} ${request.url.pathname}`);
+  });
+
+  const screen = await renderSuite();
+  const deleteTrigger = screen.getByRole('button', { name: '스위트 삭제' });
+  await deleteTrigger.click();
+
+  const dialog = screen.getByRole('alertdialog', { name: '테스트 스위트를 삭제할까요?' });
+  const cancel = screen.getByRole('button', { name: '취소' });
+  await expect.element(dialog).toBeVisible();
+  await expect.poll(() => document.activeElement).toBe(cancel.element());
+  await cancel.click();
+
+  await expect.element(dialog).not.toBeInTheDocument();
+  await expect.poll(() => document.activeElement).toBe(deleteTrigger.element());
+});
+
+test('suite deletion keeps the confirmation open after failure and retries the same operation', async () => {
+  let deleteAttempt = 0;
+  const onDeleted = vi.fn();
+  const onNotify = vi.fn();
+  const { requests } = installApiStub((request) => {
+    if (request.method === 'GET') return apiSuccess(listResponse());
+    if (request.method === 'DELETE' && request.url.pathname === '/api/v1/test-suites/7') {
+      deleteAttempt += 1;
+      if (deleteAttempt === 1) return apiFailure(503, 'TEMPORARY_FAILURE', '잠시 후 다시 시도해 주세요.');
+      return new Response(null, { status: 204 });
+    }
+    throw new Error(`Unexpected API request: ${request.method} ${request.url.pathname}`);
+  });
+
+  const screen = await render(
+    <SuiteDetailModal
+      suite={suite}
+      onClose={vi.fn()}
+      onDeleted={onDeleted}
+      onCaseCountChanged={vi.fn()}
+      onNotify={onNotify}
+    />,
+  );
+  await screen.getByRole('button', { name: '스위트 삭제' }).click();
+  await screen.getByRole('button', { name: '삭제하기' }).click();
+  await expect.element(screen.getByText('잠시 후 다시 시도해 주세요.')).toBeVisible();
+  expect(onDeleted).not.toHaveBeenCalled();
+
+  await screen.getByRole('button', { name: '다시 시도' }).click();
+  await expect.poll(() => requests.filter(({ method }) => method === 'DELETE').length).toBe(2);
+  expect(onDeleted).toHaveBeenCalledOnce();
+  expect(onNotify).toHaveBeenCalledWith("테스트 스위트 '보안 회귀 스위트'가 삭제되었습니다.");
+});
+
 test('mobile pagination stays horizontal and follows the visual focus order', async () => {
   await page.viewport(360, 800);
   installApiStub((request: StubbedApiRequest) => {
