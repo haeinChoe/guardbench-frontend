@@ -66,7 +66,7 @@ View는 Hook, Service, Common component와 presentation helper를 사용할 수 
 | --- | --- |
 | App과 스타일 | `src/main.tsx` React 진입점; `src/App.tsx` route·shell·toast 조합; `src/App.css`, `src/index.css` 전역 스타일 |
 | Assets | `src/assets/hero.png`, `src/assets/react.svg`, `src/assets/vite.svg` 정적 파일 |
-| Common UI (`src/components/common/`) | `ActionValue.tsx` action 값 표시; `BulkTestCaseCreatePanel.tsx` 일괄 입력 UI; `CreateSuiteModal.tsx` suite 생성 입력·검증·제출; `RequestErrorBanner.tsx` 요청 오류 표현; `RunProgressStepper.tsx` 진행 표현; `StatCard.tsx` 통계 표시; `StatusPill.tsx` 상태 표시; `SuiteDetailModal.tsx` case mutation·bulk UI (`useSuiteTestCases`에 collection 조회 위임); `SuiteDeleteConfirmationDialog.tsx` suite 삭제 확인·실패·retry 흐름 |
+| Common UI (`src/components/common/`) | `ActionValue.tsx` action 값 표시; `BulkTestCaseCreatePanel.tsx` 일괄 입력 UI; `CreateSuiteModal.tsx` Suite 정보·생성 요청; `InitialTestCasesEditor.tsx` 초기 TestCase 편집·검증·미리보기; `RequestErrorBanner.tsx` 요청 오류 표현; `RunProgressStepper.tsx` 진행 표현; `StatCard.tsx` 통계 표시; `StatusPill.tsx` 상태 표시; `SuiteDetailModal.tsx` case mutation·bulk UI (`useSuiteTestCases`에 collection 조회 위임); `SuiteDeleteConfirmationDialog.tsx` suite 삭제 확인·실패·retry 흐름 |
 | Common helper (`src/components/common/`) | `actionPresentation.ts` action label/tone; `statusLabels.ts` 진행 status label; `suiteDetailPagination.ts` TestCase page item 계산; `testCaseEditState.ts` case edit draft·API field mapping·validation·transition |
 | Layout (`src/components/layout/`) | `Sidebar.tsx` navigation 및 mobile menu interaction; `Topbar.tsx` 상단 셸 표시 |
 | Views (`src/components/views/`) | `DashboardView.tsx` 요약 조회·집계·표현; `NewRunView.tsx` suite 선택, target/policy form과 Run 접수; `RunsView.tsx` Run collection 조회·filter; `SuitesView.tsx` suite collection 조회 및 modal 연결 |
@@ -82,7 +82,7 @@ View는 Hook, Service, Common component와 presentation helper를 사용할 수 
 ### 우선 검토 결과
 
 - `SuiteDetailModal.tsx`(현재 760줄)는 case 추가·수정과 bulk UI를 조율한다. 목록 조회/pagination state는 `useSuiteTestCases`, suite 삭제 확인·요청·focus lifecycle은 `SuiteDeleteConfirmationDialog`로 분리했다. 남은 변경은 form state와 focus/error lifecycle을 기준으로 선정한다.
-- `CreateSuiteModal.tsx`(571줄)는 기본 case 입력과 JSON/CSV bulk 입력, 검증, 제출 흐름을 한 modal에 둔다. bulk parser는 이미 `utils/testCaseBulkImport.ts`에 pure logic으로 분리돼 있다.
+- `CreateSuiteModal.tsx`는 Suite 이름·설명, 최종 payload 검증과 생성 요청을 소유한다. 선택 초기 TestCase의 단건·JSON/CSV 입력, 검증, 파일 처리와 preview state는 `InitialTestCasesEditor.tsx`가 소유하며 bulk parser는 `utils/testCaseBulkImport.ts`의 pure logic을 사용한다.
 - `ResultDetailView.tsx`(579줄)는 progress polling 연결, 결과·Evaluator 조회, filter·pagination, race recovery와 상세 dialog를 소유한다. 의미별 state와 request identity를 확인하며 단계적으로 분리한다.
 - `useRegressionComparison.ts`(350줄)는 candidate, summary, detail query와 자동 재시도 lifecycle을 관리한다. state identity와 retry 계약이 얽혀 있어 무관한 단순화는 하지 않는다.
 - 서비스별 API DTO와 pure presentation helper가 이미 존재한다. API DTO 구조가 UI에 우연히 맞는다는 이유만으로 layer를 합치지 않는다.
@@ -92,6 +92,8 @@ View는 Hook, Service, Common component와 presentation helper를 사용할 수 
 Issue #8의 첫 단계에서는 결과 filter의 DOM 문자열을 허용된 union 값으로 검증하고, 결과 pagination item 계산을 화면에서 분리해 순수 helper로 만들었다. 기존 옵션, 요청 mapping, 페이지 표시와 화면 문구는 유지한다. 추출한 filter 및 pagination helper는 Node test에서 허용·거부 입력과 페이지 경계를 검증한다.
 
 후속 단계에서는 `SuiteDetailModal`에서 TestCase page 조회·갱신 lifecycle을 `useSuiteTestCases`로 옮기고, suite 삭제 확인·요청·오류·retry·focus lifecycle을 `SuiteDeleteConfirmationDialog`로 분리했다. 기존 suite identity 방어, 실패 재시도, 취소 시 focus 복귀와 삭제 후 유효하지 않은 마지막 page 복구를 browser test로 확인한다. TestCase pagination item 계산과 API field validation 경로 mapping도 각각 순수 helper로 분리해 Node test를 추가했다. 요청 처리, 오류 표현, pagination 동작과 사용자 화면은 바꾸지 않았다.
+
+Suite 생성 modal에서는 선택 초기 TestCase 편집 흐름의 입력 state, JSON/CSV preview·오류 및 해당 field focus를 `InitialTestCasesEditor`가 소유한다. 부모 `CreateSuiteModal`은 Suite 입력, 최종 생성 요청과 modal focus lifecycle을 유지한다. Browser test는 단건 검증, JSON/CSV payload, 서버 field 오류와 focus를 확인한다.
 
 ## 6. 검증 및 변경 기준
 
