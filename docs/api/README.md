@@ -34,8 +34,10 @@ npm run openapi:verify -- --backend-path ../guardbench-backend
 npm run openapi:check-latest -- --backend-path ../guardbench-backend --ref origin/dev
 ```
 
-GitHub Actions의 `OpenAPI Contract` workflow도 매일 최신 백엔드 `dev`와 비교한다. drift가
-발견되면 사본을 빌드 중 임의로 바꾸지 않고 실패로 알리며, 동기화와 프론트 영향 검토는 PR로 수행한다.
+GitHub Actions의 `OpenAPI Contract` workflow는 OpenAPI 관련 PR에서 기록된 Backend source와 사본이
+일치하는지 검증한다. 최신 Backend `dev`와 drift 비교가 필요하면 workflow를 수동 실행한다. 정기 drift
+검사는 현재 비활성화되어 있다. drift가 발견되더라도 사본을 빌드 중 임의로 바꾸지 않고, 승인된 Backend
+source를 검토한 뒤 동기화와 Frontend 영향 검토를 PR로 수행한다.
 
 OpenAPI 변경은 백엔드에서 먼저 승인·병합한 뒤 동기화한다. 프론트 변경 PR은 출처 metadata,
 생성 또는 수동 DTO, 화면 동작과 계약 문서를 함께 검토한다.

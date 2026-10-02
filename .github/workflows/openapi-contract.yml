@@ -12,8 +12,6 @@ on:
       - '.gitattributes'
       - '.github/workflows/openapi-contract.yml'
   workflow_dispatch:
-  schedule:
-    - cron: '17 0 * * *'
 
 permissions:
   contents: read
@@ -49,7 +47,7 @@ jobs:
 
   detect-latest:
     name: Detect Backend OpenAPI Drift
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     steps:

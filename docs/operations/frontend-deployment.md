@@ -19,9 +19,13 @@
 
 문서와 코드가 함께 변경되면 일반 코드 변경으로 취급한다. 수동 실행은 path filter와 관계없이 현재 `main` 또는 실행 시 선택한 ref를 빌드하고 dev에 배포한다.
 
+`verify`는 `Build`와 `Component Test (Chromium)` 결과를 집계한다. 두 검증 job이 모두 성공해야 required check가 통과하며, 실패 또는 skip 결과도 실패로 보고한다.
+
 ## Job 경계
 
 - `Build`는 checkout, dependency 설치, TypeScript/Vite build와 artifact 업로드를 담당한다.
+- `Component Test (Chromium)`은 Chromium 기반 browser test를 담당한다.
+- `verify`는 `Build`와 `Component Test (Chromium)` 결과를 검사해 branch ruleset의 required status를 제공한다.
 - `Deploy to Dev`는 성공한 build artifact만 내려받아 S3 sync와 CloudFront invalidation을 수행한다.
 - AWS 인증이나 배포가 실패해도 `Build` job 결과를 별도로 확인할 수 있다.
 - PR에서는 AWS credential을 사용하지 않는다.
