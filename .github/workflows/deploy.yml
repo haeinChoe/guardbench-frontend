@@ -78,6 +78,28 @@ jobs:
       - name: Test Components
         run: npm run test:component
 
+  verify:
+    name: verify
+    needs: [build, component-test]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Require Build and Component Test
+        shell: bash
+        env:
+          BUILD_RESULT: ${{ needs.build.result }}
+          COMPONENT_TEST_RESULT: ${{ needs.component-test.result }}
+        run: |
+          if [[ "$BUILD_RESULT" != "success" ]]; then
+            echo "Build did not pass: $BUILD_RESULT" >&2
+            exit 1
+          fi
+          if [[ "$COMPONENT_TEST_RESULT" != "success" ]]; then
+            echo "Component Test did not pass: $COMPONENT_TEST_RESULT" >&2
+            exit 1
+          fi
+
   deploy:
     name: Deploy to Dev
     if: github.event_name != 'pull_request'
