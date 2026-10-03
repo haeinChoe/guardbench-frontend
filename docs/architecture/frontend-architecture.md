@@ -92,9 +92,9 @@ fixture-backed demo adapter와 fail-fast 설정 처리는 구현되어 있지 �
 | Suite 삭제 | `DELETE /test-suites/{id}` | `SuiteDeleteConfirmationDialog` | 확인 dialog의 pending/error와 focus lifecycle |
 | Run 목록 | `GET /test-runs` | `RunsView` | 검색·상태 filter |
 | Run 상세와 polling | `GET /test-runs/{id}` | `ResultDetailView` + `useLiveRunProgress` | result selection, filters, tabs |
-| Run 결과 목록 | `GET /test-runs/{id}/results` | `ResultDetailView` | page/filter/sort 상태; list DTO에 Application Response 없음 |
+| Run 결과 목록 | `GET /test-runs/{id}/results` | `useResultDetailQueries` + `ResultDetailView` | hook은 요청 identity, stale 응답 방지, facet·race 복구를 소유하고 view는 filter/page 입력과 표현을 소유한다. list DTO에 Application Response 없음 |
 | Run 결과 상세 | `GET /test-runs/{id}/results/{snapshotId}` | `ApplicationResponseEvidence` | dialog open 시 조회한 `TestRunResultDetailRes` |
-| Evaluator metrics | `GET /test-runs/{id}/evaluator-metrics` | `ResultDetailView` | presentation 상태 |
+| Evaluator metrics | `GET /test-runs/{id}/evaluator-metrics` | `useResultDetailQueries` + `ResultDetailView` | hook은 Run별 조회와 stale 응답 방지를 소유하고 view는 표현 상태를 소유한다. |
 | Comparable Runs와 comparison | comparison endpoints | `App` + `useRegressionComparison` | 선택 comparison Run 및 화면 state |
 
 ### 5.1 Query identity
