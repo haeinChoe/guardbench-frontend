@@ -74,7 +74,7 @@ View는 Hook, Service, Common component와 presentation helper를 사용할 수 
 | Regression views (`src/components/views/`) | `RegressionComparisonSection.tsx` summary·분포·filter·비교 table 표시; `RegressionDetailView.tsx` 상세 비교 화면; `RegressionSummaryEntry.tsx` 요약 진입점 |
 | View pure helpers (`src/components/views/`) | `applicationResponsePresentation.ts` response 출처 표시; `evaluationOutcomePresentation.ts` outcome label/tone; `newRunForm.ts` form parse·request mapping; `qualityGatePresentation.ts` server metric presentation; `regressionSummary.ts` summary·distribution mapping; `resultFilterPresentation.ts` filter state·empty/count presentation; `resultInspectionPresentation.ts` 결과별 확인 안내; `resultPaginationPresentation.ts` 결과 pagination item 계산 |
 | Config와 contract | `config/layers.ts` portal layer class; `config/runtimeConfig.ts` runtime mode/base URL; `contracts/openapiNullability.contract.ts` compile-time nullable contract |
-| Hooks와 state helpers (`src/hooks/`) | `useDialogFocus.ts` dialog focus lifecycle; `useLiveRunProgress.ts` Run progress polling; `useRegressionComparison.ts` candidate·summary·comparison 조회와 retry; `useSuiteTestCases.ts` suite별 TestCase page 조회·갱신; `regressionComparisonState.ts` 비교 query key·전이 규칙 |
+| Hooks와 state helpers (`src/hooks/`) | `useDialogFocus.ts` dialog focus lifecycle; `useLiveRunProgress.ts` Run progress polling; `useRegressionComparison.ts` Regression 후보·summary·detail 요청과 retry orchestration; `regressionComparisonState.ts` Regression query identity 검증과 불변 state transition; `useSuiteTestCases.ts` suite별 TestCase page 조회·갱신 |
 | Routing | `routing/routes.ts` route parse·serialize 및 Run identity |
 | Services (`src/services/`) | `apiClient.ts` fetch·envelope·공개 오류 경계; `testSuiteService.ts`, `testCaseService.ts`, `testRunService.ts`, `regressionService.ts` endpoint DTO와 요청 함수 |
 | Types와 Utils | `types/index.ts` 공유 frontend type; `utils/testCaseBulkImport.ts` JSON/CSV 순수 import parser와 payload 변환 |
@@ -84,7 +84,7 @@ View는 Hook, Service, Common component와 presentation helper를 사용할 수 
 - `SuiteDetailModal.tsx`(현재 760줄)는 case 추가·수정과 bulk UI를 조율한다. 목록 조회/pagination state는 `useSuiteTestCases`, suite 삭제 확인·요청·focus lifecycle은 `SuiteDeleteConfirmationDialog`로 분리했다. 남은 변경은 form state와 focus/error lifecycle을 기준으로 선정한다.
 - `CreateSuiteModal.tsx`(571줄)는 기본 case 입력과 JSON/CSV bulk 입력, 검증, 제출 흐름을 한 modal에 둔다. bulk parser는 이미 `utils/testCaseBulkImport.ts`에 pure logic으로 분리돼 있다.
 - `ResultDetailView.tsx`(579줄)는 progress polling 연결, 결과·Evaluator 조회, filter·pagination, race recovery와 상세 dialog를 소유한다. 의미별 state와 request identity를 확인하며 단계적으로 분리한다.
-- `useRegressionComparison.ts`(350줄)는 candidate, summary, detail query와 자동 재시도 lifecycle을 관리한다. state identity와 retry 계약이 얽혀 있어 무관한 단순화는 하지 않는다.
+- `useRegressionComparison.ts`는 candidate, summary, detail 요청과 자동 재시도를 조율한다. query 응답 반영, 선택·refresh 전이와 request identity guard는 `regressionComparisonState.ts`의 순수 transition으로 두며 Run·후보 변경 시 지연 응답을 반영하지 않는다. 재시도 횟수·간격, 선택 보존, 화면 왕복 cache는 승인된 동작을 유지한다.
 - 서비스별 API DTO와 pure presentation helper가 이미 존재한다. API DTO 구조가 UI에 우연히 맞는다는 이유만으로 layer를 합치지 않는다.
 - 코드베이스에 Node pure logic/contract test와 Chromium component test가 있다. 분리한 계산은 Node test로, 실제 DOM interaction·focus·접근성은 browser test로 검증한다.
 - 고위험 영역의 state 개수나 파일 길이는 단독 품질 지표가 아니다. 해당 값만 줄이려는 refactor는 하지 않는다.

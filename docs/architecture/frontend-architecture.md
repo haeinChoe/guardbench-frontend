@@ -95,7 +95,7 @@ fixture-backed demo adapter와 fail-fast 설정 처리는 구현되어 있지 �
 | Run 결과 목록 | `GET /test-runs/{id}/results` | `ResultDetailView` | page/filter/sort 상태; list DTO에 Application Response 없음 |
 | Run 결과 상세 | `GET /test-runs/{id}/results/{snapshotId}` | `ApplicationResponseEvidence` | dialog open 시 조회한 `TestRunResultDetailRes` |
 | Evaluator metrics | `GET /test-runs/{id}/evaluator-metrics` | `ResultDetailView` | presentation 상태 |
-| Comparable Runs와 comparison | comparison endpoints | `App` + `useRegressionComparison` | 선택 comparison Run 및 화면 state |
+| Comparable Runs와 comparison | comparison endpoints | `App` + `useRegressionComparison` | 선택 comparison Run 및 화면 state; query 응답 적용과 identity guard는 `regressionComparisonState` transition |
 
 ### 5.1 Query identity
 
@@ -238,7 +238,7 @@ Regression은 현재 Run 자체의 Quality Gate와 독립적인 조회 기능이
 6. `TEST_RUN_NOT_FINISHED`이면 관련 Run detail을 다시 확인한다.
 7. `TEST_RUNS_NOT_COMPARABLE`이면 comparison state를 비우고 comparable-runs를 재조회하거나 다른 후보를 선택하게 한다.
 
-`App`이 current Run별 `useRegressionComparison` 상태를 소유한다. Result Detail은 case-level `items`가 없는
+`App`이 current Run별 `useRegressionComparison` 상태를 소유한다. Hook은 후보·summary·전체 comparison 요청과 재시도를 조율하며, `regressionComparisonState`는 요청 identity를 검사해 결과·오류·선택·refresh 전이를 불변 업데이트로 적용한다. Run ID, candidate page, 선택 comparison Run 또는 reload token이 요청 당시 값과 다르면 늦은 응답을 폐기한다. Result Detail은 case-level `items`가 없는
 comparison summary endpoint를 사용하고, Regression Detail에 진입할 때만 전체 comparison을 조회한다.
 Result Detail의 Run 상태 polling이 `FINISHED` 전환을 확인하면, `TEST_RUN_NOT_FINISHED`로 대기 중이던
 Regression 후보 조회를 다시 시작한다. 고정 재시도 횟수를 실행 시간의 완료 조건으로 사용하지 않는다.
