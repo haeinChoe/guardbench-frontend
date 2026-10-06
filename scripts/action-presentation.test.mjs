@@ -29,7 +29,7 @@ test('action consumers use the shared typography components', () => {
     ['../src/components/views/ResultDetailView.tsx', ['<ActionCode value={selected.expectedAction}', '<OptionalActionValue value={selected.evaluatorVerdict}']],
     ['../src/components/views/RegressionComparisonSection.tsx', ['<ActionCode value={item.expectedAction}', '<OptionalActionValue value={item.comparisonVerdict}', '<OptionalActionValue value={item.currentVerdict}']],
     ['../src/components/common/SuiteDetailModal.tsx', ['<ActionCode value={c.expectedAction}']],
-    ['../src/components/common/CreateSuiteModal.tsx', ['<ActionCode value={testCase.expectedAction}']],
+    ['../src/components/common/InitialTestCasesEditor.tsx', ['<ActionCode value={testCase.expectedAction}']],
   ];
 
   for (const [relativePath, requiredUsages] of expectations) {

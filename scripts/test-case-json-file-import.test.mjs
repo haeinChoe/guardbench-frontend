@@ -67,10 +67,10 @@ test('JSON file import preserves the existing maximum case count validation', as
 });
 
 test('the suite creation UI accepts JSON files in the existing JSON mode', () => {
-  const modal = readFileSync(new URL('../src/components/common/CreateSuiteModal.tsx', import.meta.url), 'utf8');
-  assert.match(modal, /accept="\.json,application\/json"/);
-  assert.match(modal, /void selectJsonFile/);
-  assert.match(modal, /불러온 파일:/);
-  assert.match(modal, /JSON 검증 및 적용/);
-  assert.doesNotMatch(modal, /JSON 미리보기/);
+  const editor = readFileSync(new URL('../src/components/common/InitialTestCasesEditor.tsx', import.meta.url), 'utf8');
+  assert.match(editor, /accept="\.json,application\/json"/);
+  assert.match(editor, /void selectJsonFile/);
+  assert.match(editor, /불러온 파일:/);
+  assert.match(editor, /JSON 검증 및 적용/);
+  assert.doesNotMatch(editor, /JSON 미리보기/);
 });

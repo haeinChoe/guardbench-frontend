@@ -89,6 +89,7 @@ fixture-backed demo adapter와 fail-fast 설정 처리는 구현되어 있지 �
 | Suite 목록 | `GET /test-suites` | `SuitesView` | 선택 card, 생성 modal |
 | Suite 내 TestCase 목록 | `GET /test-suites/{id}/test-cases` | `useSuiteTestCases` | 현재 page와 collection 갱신 상태 |
 | TestCase mutation | TestCase service | `SuiteDetailModal` | create/edit draft와 선택 row |
+| Suite 생성 form | TestSuite service | `CreateSuiteModal` | Suite 이름·설명, mutation·modal lifecycle; 선택 초기 TestCase의 draft·import·preview·field validation은 `InitialTestCasesEditor` |
 | Suite 삭제 | `DELETE /test-suites/{id}` | `SuiteDeleteConfirmationDialog` | 확인 dialog의 pending/error와 focus lifecycle |
 | Run 목록 | `GET /test-runs` | `RunsView` | 검색·상태 filter |
 | Run 상세와 polling | `GET /test-runs/{id}` | `ResultDetailView` + `useLiveRunProgress` | result selection, filters, tabs |
